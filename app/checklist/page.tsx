@@ -110,10 +110,12 @@ export default function ChecklistPage() {
   const totalCount = checklistData.length;
   const completedCount = Object.keys(completedItems).length;
   const todayProgress = Math.round((completedCount / totalCount) * 100);
+const persianDays = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+const todayDayName = persianDays[(new Date().getDay() + 1) % 7];
 
   const currentWeeklyData = weeklyData.map((item) =>
-    item.day === 'چ' ? { ...item, percent: todayProgress } : item
-  );
+  item.day === todayDayName ? { ...item, percent: todayProgress } : item
+);
 
   // ۳. تغییر وضعیت تیک و سینک با Supabase
   const toggleItem = async (id: string) => {
@@ -194,7 +196,7 @@ export default function ChecklistPage() {
               </div>
             </div>
             <div className="text-right">
-              <span className="text-3xl font-extrabold text-[#0F2942]">۰ روز</span>
+              <span className="text-3xl font-extrabold text-[#0F2942]">0 روز</span>
               <p className="text-xs text-slate-400 mt-1">رکورد پیوسته</p>
             </div>
           </div>
