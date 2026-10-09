@@ -104,7 +104,7 @@ export async function POST(req: Request) {
     }
 
     const response = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       messages: [
         {
           role: 'system',
@@ -124,7 +124,6 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Ergo Assistant Error Details:', error);
 
-    // ارسال متن دقیق خطا به مرورگر برای تشخیص سریع علت
     const errorMessage = error?.message || error?.error?.message || String(error);
 
     return NextResponse.json(
