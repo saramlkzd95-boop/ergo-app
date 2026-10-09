@@ -1,51 +1,63 @@
+import Image from "next/image";
 import Link from "next/link";
+import { ArrowLeft, Sparkles, CheckCircle, ShieldCheck, Activity, Award, BookOpen, Target } from "lucide-react";
+import NotificationManager from "@/components/NotificationManager";
 
 export default function Home() {
   return (
-    <div className="space-y-16 pb-12" dir="rtl">
-      {/* بخش Hero با پس‌زمینه سبز برگی و تصویر کامل */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#bef264] via-[#a3e635] to-[#84cc16] border border-emerald-100 shadow-sm p-8 md:p-12 lg:p-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+    <div className="min-h-screen bg-[#eaf4f4] font-[Vazirmatn]">
+      {/* Hero Section */}
+      <section className="max-w-6xl mx-auto px-6 py-12 md:py-20">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           
-          {/* ستون متن و دکمه‌ها */}
+          {/* Hero Content */}
           <div className="space-y-6 text-right">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium">
-              <span>🌿</span>
-              <span>سامانه ارگونومی محیط کار و سلامت اداری</span>
+            
+            {/* نشان بالای تیتر */}
+            <div className="inline-flex items-center gap-2 bg-[#d8f3dc] text-[#1b4332] px-3.5 py-1.5 rounded-full text-xs font-semibold">
+              <Sparkles size={14} className="text-[#2d6a4f]" />
+              <span>برنامه آموزشی مبتنی بر نظریه شناختی اجتماعی</span>
             </div>
 
-            <h1 className="text-3xl md:text-5xl font-black text-[#1e3a5f] leading-tight">
-              سلامت و بهره‌وری شما در محیط کار، با{" "}
-              <span className="text-emerald-600">ارگونو</span>
+            {/* تیتر اصلی */}
+            <h1 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight">
+              با ارگونو، بدون <span className="text-[#2d6a4f]">گردن‌درد و کمردرد</span> پشت میز کارت بمون
             </h1>
 
-            <p className="text-slate-600 text-base md:text-lg leading-relaxed">
-              آموزش‌های کاربردی، حرکات کششی متناسب با میز کار، و ابزارهای سنجش وضعیت بدنی برای پیشگیری از خستگی و دردهای اسکلتی-عضلانی بر پایه نظریه شناختی اجتماعی.
+            {/* توضیحات تکمیلی */}
+            <p className="text-slate-900 text-base md:text-lg leading-relaxed font-normal">
+              ارگونو مربی شخصی شماست برای پیشگیری از دردهای گردن، شانه و کمر ناشی از کار طولانی با رایانه. آموزش‌های علمی، تمرینات روزانه و چک‌لیست تعاملی – همه در یک‌جا.
             </p>
 
-            <div className="flex flex-wrap gap-4 pt-2">
+            {/* دکمه‌های اقدام (CTA) */}
+            <div className="flex flex-wrap items-center gap-4 pt-2">
               <Link
-                href="/modules"
-                className="px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm hover:shadow"
+                href="/dashboard"
+                className="bg-[#1b4332] hover:bg-[#2d6a4f] text-white px-6 py-3.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
               >
-                شروع برنامه آموزشی
+                <span>شروع برنامه شخصی</span>
+                <ArrowLeft size={16} />
               </Link>
+              
               <Link
-                href="/checklist"
-                className="px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-200 transition shadow-sm"
+                href="#principles"
+                className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 px-6 py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm"
               >
-                چک‌لیست ارگونومی میز کار
+                آشنایی با اصول ارگونومی
               </Link>
             </div>
           </div>
 
-          {/* ستون تصویر — نمایش کامل بدون کراپ */}
-          <div className="flex justify-center items-center">
-            <div className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-sm border border-emerald-100/70 bg-white/70 backdrop-blur-xs p-3 flex items-center justify-center">
-              <img
+          {/* Hero Image */}
+          <div className="relative flex justify-center">
+            <div className="bg-white p-4 md:p-6 rounded-3xl shadow-xl border border-slate-100 max-w-xl w-full">
+              <Image
                 src="/ergonomics-hero.png"
                 alt="ارگونومی محیط کار"
-                className="w-full h-auto object-contain rounded-xl"
+                width={700}
+                height={500}
+                className="w-full h-auto object-contain rounded-2xl"
+                priority
               />
             </div>
           </div>
@@ -53,111 +65,141 @@ export default function Home() {
         </div>
       </section>
 
-      {/* بخش کارت‌های ۶‌گانه امکانات */}
-      <section className="space-y-6">
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl md:text-3xl font-bold text-[#1e3a5f]">
-            امکانات و بخش‌های سامانه
+      {/* بخش یادآور هوشمند ارگونومی (Notification) */}
+      <section className="max-w-6xl mx-auto px-6 mb-8">
+        <NotificationManager />
+      </section>
+
+      {/* 6 Features Grid */}
+      <section id="features" className="max-w-6xl mx-auto px-6 py-16">
+        <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
+            امکانات سامانه ارگونو
           </h2>
-          <p className="text-slate-500 text-sm md:text-base">
-            ابزارهایی جامع برای حفظ سلامتی و ارتقای استاندارد وضعیت بدنی شما
+          <p className="text-slate-900 text-sm md:text-base">
+            ابزارهای کامل برای حفظ سلامت بدنی و اصلاح عادت‌های حرکتی در محیط کار
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
-              📚
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+              <CheckCircle size={24} />
             </div>
-            <h3 className="font-bold text-lg text-[#1e3a5f] mb-2">ماژول‌های آموزشی</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              آموزش تنظیم استاندارد صندلی، مانیتور، کیبورد و نور مناسب محیط کار.
+            <h3 className="text-lg font-bold text-slate-900">چک‌لیست روزانه</h3>
+            <p className="text-slate-900 text-sm leading-relaxed">
+              ارزیابی تعاملی وضعیت نشستن، تنظیم مانیتور و صندلی به صورت روزانه.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
-              🧘
+          {/* کارت تمرینات کششی (متصل به /exercises) */}
+          <Link
+            href="/exercises"
+            className="block bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center group-hover:bg-[#1b4332] group-hover:text-white transition-colors">
+              <Activity size={24} />
             </div>
-            <h3 className="font-bold text-lg text-slate-800 mb-2">تمرینات کششی روزانه</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              حرکات ورزشی کوتاه و موثر پشت میز برای رفع اسپاسم گردن، شانه و مچ دست.
+            <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#1b4332] transition-colors">
+              تمرینات کششی
+            </h3>
+            <p className="text-slate-900 text-sm leading-relaxed">
+              حرکات اصلاحی و کششی کوتاه برای اجرا در حین فواصل کاری.
+            </p>
+          </Link>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+              <BookOpen size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">آموزش‌های گام‌به‌گام</h3>
+            <p className="text-slate-900 text-sm leading-relaxed">
+              محتوای کاربردی مبتنی بر شواهد علمی برای پیشگیری از آسیب‌های اسکلتی.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
-              📋
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+              <Target size={24} />
             </div>
-            <h3 className="font-bold text-lg text-slate-800 mb-2">چک‌لیست خودارزیابی</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              بررسی سریع ایستگاه کاری و دریافت نمره وضعیت ارگونومی به همراه پیشنهادات اصلاحی.
+            <h3 className="text-lg font-bold text-slate-900">پیگیری پیشرفت</h3>
+            <p className="text-slate-900 text-sm leading-relaxed">
+              مشاهده نمودار بهبود وضعیت بدنی و میزان رعایت اصول ارگونومی.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
-              ⏰
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+              <ShieldCheck size={24} />
             </div>
-            <h3 className="font-bold text-lg text-slate-800 mb-2">قانون ۲۰-۲۰-۲۰</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              یادآور و تکنیک‌های مراقبت از سلامت چشم و کاهش خستگی بینایی ناشی از صفحه نمایش.
+            <h3 className="text-lg font-bold text-slate-900">خودکارآمدی شغلی</h3>
+            <p className="text-slate-900 text-sm leading-relaxed">
+              افزایش انگیزه و توانمندی فردی برای مدیریت سلامت در محیط کار.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
-              🎯
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+              <Award size={24} />
             </div>
-            <h3 className="font-bold text-lg text-slate-800 mb-2">تغییر رفتار پایدار</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              طراحی شده بر مبنای مدل‌های تغییر رفتار و افزایش خودکارآمدی ارگونومیک.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
-              📊
-            </div>
-            <h3 className="font-bold text-lg text-slate-800 mb-2">پایش مستمر</h3>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              مشاهده روند بهبود وضعیت بدنی و ارزیابی منظم محیط کار در طول زمان.
+            <h3 className="text-lg font-bold text-slate-900">پاداش و نشان‌ها</h3>
+            <p className="text-slate-900 text-sm leading-relaxed">
+              کسب امتیاز و دریافت مدال‌های سلامتی با انجام منظم تمرینات.
             </p>
           </div>
         </div>
       </section>
 
-      {/* بخش آمار پایین صفحه */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#bef264] via-[#a3e635] to-[#84cc16] border border-emerald-100 shadow-sm p-8 md:p-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-          
-          <div className="space-y-2">
-            <div className="text-3xl lg:text-4xl font-black text-emerald-900 font-sans tracking-tight">
-              ۸۰٪+
+      {/* Stats Section */}
+      <section className="bg-[#f0f7f7] py-12 md:py-16 border-y border-[#d8e8e8]">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div className="space-y-2">
+              <div className="text-3xl md:text-4xl font-extrabold text-[#1b4332] dir-ltr">
+                +۸۰٪
+              </div>
+              <p className="text-slate-600 text-xs md:text-sm font-medium">
+                از کارمندان اداری حداقل یک‌بار درد گردن را تجربه می‌کنند
+              </p>
             </div>
-            <div className="text-xs md:text-sm text-emerald-800/80 font-medium">
-              از کارمندان اداری حداقل یک‌بار درد گردن را تجربه می‌کنند
+
+            <div className="space-y-2">
+              <div className="text-3xl md:text-4xl font-extrabold text-[#1b4332]">
+                ۲۰ ثانیه
+              </div>
+              <p className="text-slate-600 text-xs md:text-sm font-medium">
+                هر ۲۰ دقیقه، به فاصله ۶ متری نگاه کنید
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-3xl md:text-4xl font-extrabold text-[#1b4332]">
+                ۵ سازه
+              </div>
+              <p className="text-slate-600 text-xs md:text-sm font-medium">
+                نظریه شناختی اجتماعی، پایه برنامه آموزشی ارگونو
+              </p>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="space-y-2">
-            <div className="text-3xl lg:text-4xl font-black text-emerald-900 font-sans tracking-tight">
-              ۲۰ ثانیه
-            </div>
-            <div className="text-xs md:text-sm text-emerald-800/80 font-medium">
-              هر ۲۰ دقیقه، به فاصله ۶ متری نگاه کنید
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-3xl lg:text-4xl font-black text-emerald-900 font-sans tracking-tight">
-              ۵ سازه
-            </div>
-            <div className="text-xs md:text-sm text-emerald-800/80 font-medium">
-              نظریه شناختی اجتماعی، پایه برنامه آموزشی ارگونو
-            </div>
-          </div>
-
+      {/* Final Call to Action Section */}
+      <section className="max-w-4xl mx-auto px-6 py-16 text-center space-y-6">
+        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">
+          همین امروز شروع کنید
+        </h2>
+        <p className="text-slate-600 text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+          با چک‌لیست تعاملی، پیشرفت روزانه و هفتگی خود را ببینید و عادت‌های سالم را در محیط کار بسازید.
+        </p>
+        <div className="pt-2">
+          <Link
+            href="/checklist"
+            className="inline-flex items-center gap-2 bg-[#1b4332] hover:bg-[#2d6a4f] text-white px-8 py-3.5 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg"
+          >
+            <ArrowLeft size={16} />
+            <span>ورود به چک‌لیست روزانه</span>
+          </Link>
         </div>
       </section>
     </div>

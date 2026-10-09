@@ -1,292 +1,458 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  Calendar,
+  Flame,
+  TrendingUp,
+  Check,
+  Bot,
+} from "lucide-react";
 
 interface ChecklistItem {
   id: string;
   title: string;
-  category: string;
-  description: string;
+  subtitle: string;
 }
 
-const checklistData: ChecklistItem[] = [
+const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
-    id: 'workstation-1',
-    category: 'شروع روز',
-    title: 'تنظیم ارگونومیک ایستگاه کار در شروع روز',
-    description: 'ارتفاع صندلی، فاصله و ارتفاع مانیتور، موقعیت کیبورد و ماوس را بررسی کنید.',
+    id: "setup_workstation",
+    title: "تنظیم ارگونومیک ایستگاه کار در شروع روز",
+    subtitle: "ارتفاع صندلی، فاصله و ارتفاع مانیتور، موقعیت کیبورد و ماوس را بررسی کنید.",
   },
   {
-    id: 'posture-1',
-    category: 'وضعیت بدن',
-    title: 'تنظیم ارتفاع صندلی و زاویه زانوها',
-    description: 'کف پاها باید کاملاً روی زمین باشد و زانوها زاویه ۹۰ تا ۱۰۰ درجه داشته باشند.',
+    id: "rule_20_20_20",
+    title: "اجرای قانون ۲۰-۲۰-۲۰",
+    subtitle: "هر ۲۰ دقیقه، ۲۰ ثانیه به فاصله ۲۰ فوتی (۶ متر) نگاه کنید.",
   },
   {
-    id: 'posture-2',
-    category: 'وضعیت بدن',
-    title: 'پشتیبانی کامل از گودی کمر',
-    description: 'پشتی صندلی یا بالشتک ارگونومیک باید انحنای طبیعی گودی کمر را بپوشاند.',
+    id: "hourly_break",
+    title: "استراحت کوتاه هر یک ساعت",
+    subtitle: "حداقل ۲ تا ۵ دقیقه از صندلی بلند شوید و راه بروید.",
   },
   {
-    id: 'screen-1',
-    category: 'مانیتور',
-    title: 'تنظیم لبه بالایی مانیتور هم‌سطح چشم',
-    description: 'از خم شدن گردن به جلو یا پایین خودداری کنید تا فشار به مهره‌های گردن کاهش یابد.',
+    id: "chin_tuck",
+    title: "تمرین Chin Tuck",
+    subtitle: "۱۰ تکرار در ۳ نوبت طی روز.",
   },
   {
-    id: 'screen-2',
-    category: 'مانیتور',
-    title: 'رعایت فاصله مناسب از صفحه نمایش',
-    description: 'فاصله مانیتور باید به اندازه طول یک دست کشیده (حدود ۵۰ تا ۷۰ سانتی‌متر) باشد.',
+    id: "shoulder_squeeze",
+    title: "تمرین فشردن کتف‌ها",
+    subtitle: "۱۵ تکرار در ۲ نوبت.",
   },
   {
-    id: 'break-1',
-    category: 'استراحت و چشم',
-    title: 'اجرای قانون ۲۰-۲۰-۲۰ برای چشم‌ها',
-    description: 'هر ۲۰ دقیقه، به مدت ۲۰ ثانیه به فاصله‌ای در حدود ۶ متر (۲۰ فوت) نگاه کنید.',
+    id: "neck_stretch",
+    title: "کشش گردن",
+    subtitle: "هر طرف ۳۰ ثانیه، ۲ ست.",
   },
   {
-    id: 'break-2',
-    category: 'تحرک',
-    title: 'حرکات کششی دست، مچ و شانه',
-    description: 'حرکات کششی ساده برای رفع گرفتگی عضلات مچ و سرشانه انجام دهید.',
+    id: "posture_check",
+    title: "بررسی وضعیت بدنی (Posture Check)",
+    subtitle: "۳ بار در طول روز وضعیت سر، شانه و کمر را چک کنید.",
   },
   {
-    id: 'mobility-1',
-    category: 'تحرک',
-    title: 'تغییر وضعیت و راه رفتن کوتاه',
-    description: 'حداقل هر یک ساعت یک‌بار از جای خود بلند شوید و ۱ تا ۲ دقیقه راه بروید.',
+    id: "water_intake",
+    title: "نوشیدن آب کافی",
+    subtitle: "حداقل ۶ تا ۸ لیوان آب در طول روز.",
   },
 ];
 
-const weeklyData = [
-  { day: 'ش', label: 'شنبه', percent: 0 },
-  { day: 'ی', label: 'یکشنبه', percent: 0 },
-  { day: 'د', label: 'دوشنبه', percent: 0 },
-  { day: 'س', label: 'سه‌شنبه', percent: 0 },
-  { day: 'چ', label: 'چهارشنبه', percent: 0 },
-  { day: 'پ', label: 'پنج‌شنبه', percent: 0 },
-  { day: 'ج', label: 'جمعه', percent: 0 },
+// نگاشت روزهای هفته
+const JS_DAY_TO_IRAN_DAY_INDEX: Record<number, number> = {
+  6: 0, // شنبه
+  0: 1, // یکشنبه
+  1: 2, // دوشنبه
+  2: 3, // سه‌شنبه
+  3: 4, // چهارشنبه
+  4: 5, // پنج‌شنبه
+  5: 6, // جمعه
+};
+
+const WEEK_DAYS_FA = [
+  { key: "sat", label: "ش", fullName: "شنبه" },
+  { key: "sun", label: "ی", fullName: "یکشنبه" },
+  { key: "mon", label: "د", fullName: "دوشنبه" },
+  { key: "tue", label: "س", fullName: "سه‌شنبه" },
+  { key: "wed", label: "چ", fullName: "چهارشنبه" },
+  { key: "thu", label: "پ", fullName: "پنج‌شنبه" },
+  { key: "fri", label: "ج", fullName: "جمعه" },
 ];
 
 export default function ChecklistPage() {
-  const [completedItems, setCompletedItems] = useState<{ [key: string]: boolean }>({});
-  const [loading, setLoading] = useState<boolean>(true);
+  const [completedItems, setCompletedItems] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // ۱. دریافت وضعیت آیتم‌ها از Supabase
+  const [weekDaysProgress, setWeekDaysProgress] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [streakDays, setStreakDays] = useState<number>(0);
+
+  const todayPersianDate = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat("fa-IR", { dateStyle: "full" }).format(new Date());
+    } catch {
+      return "امروز";
+    }
+  }, []);
+
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  const currentIranDayIndex = useMemo(() => {
+    const jsDay = new Date().getDay();
+    return JS_DAY_TO_IRAN_DAY_INDEX[jsDay] ?? 0;
+  }, []);
+
+  const currentPercentage = useMemo(() => {
+    return Math.round((completedItems.length / CHECKLIST_ITEMS.length) * 100);
+  }, [completedItems]);
+
+  // ۱. بارگذاری داده‌ها از دیتابیس
   useEffect(() => {
-    async function fetchChecklistProgress() {
+    async function loadUserData() {
+      setLoading(true);
       try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('checklist_progress')
-          .select('item_id, completed')
-          .eq('user_id', 'guest_user');
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (error) {
-          console.error('خطا در دریافت اطلاعات:', error.message);
-        } else if (data) {
-          const initialMap: { [key: string]: boolean } = {};
-          data.forEach((row) => {
-            if (row.completed) {
-              initialMap[row.item_id] = true;
+        if (!user) {
+          const localData = localStorage.getItem(`checklist_${todayStr}`);
+          if (localData) {
+            const parsed: string[] = JSON.parse(localData);
+            setCompletedItems(parsed);
+            const pct = Math.round((parsed.length / CHECKLIST_ITEMS.length) * 100);
+            setWeekDaysProgress((prev) => {
+              const copy = [...prev];
+              copy[currentIranDayIndex] = pct;
+              return copy;
+            });
+          }
+          setLoading(false);
+          return;
+        }
+
+        setUserId(user.id);
+
+        // دریافت وضعیت امروز
+        const { data: todayRecord } = await supabase
+          .from("checklist_progress")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("date", todayStr)
+          .maybeSingle();
+
+        let todayPct = 0;
+        if (todayRecord) {
+          const items = Array.isArray(todayRecord.completed_items) ? todayRecord.completed_items : [];
+          setCompletedItems(items);
+          todayPct =
+            todayRecord.progress_percentage ??
+            todayRecord.percentage ??
+            Math.round((items.length / CHECKLIST_ITEMS.length) * 100);
+        } else {
+          const localData = localStorage.getItem(`checklist_${todayStr}`);
+          if (localData) {
+            const parsed: string[] = JSON.parse(localData);
+            setCompletedItems(parsed);
+            todayPct = Math.round((parsed.length / CHECKLIST_ITEMS.length) * 100);
+          }
+        }
+
+        // دریافت تاریخچه ۳۰ روز گذشته
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        const startStr = startDate.toISOString().split("T")[0];
+
+        const { data: historyData } = await supabase
+          .from("checklist_progress")
+          .select("date, progress_percentage, percentage")
+          .eq("user_id", user.id)
+          .gte("date", startStr)
+          .lte("date", todayStr)
+          .order("date", { ascending: false });
+
+        const newWeekProgress = [0, 0, 0, 0, 0, 0, 0];
+
+        if (historyData) {
+          historyData.forEach((row) => {
+            const rowDate = new Date(row.date);
+            const diffDays = Math.floor((new Date().getTime() - rowDate.getTime()) / (1000 * 3600 * 24));
+            if (diffDays <= 7) {
+              const iranDayIdx = JS_DAY_TO_IRAN_DAY_INDEX[rowDate.getDay()];
+              if (iranDayIdx !== undefined) {
+                newWeekProgress[iranDayIdx] = row.progress_percentage ?? row.percentage ?? 0;
+              }
             }
           });
-          setCompletedItems(initialMap);
+
+          // محاسبه زنجیره روزهای متوالی
+          let streak = 0;
+          const checkDate = new Date();
+          while (true) {
+            const dateIso = checkDate.toISOString().split("T")[0];
+            const found = historyData.find((r) => r.date === dateIso);
+            const val = found ? (found.progress_percentage ?? found.percentage ?? 0) : 0;
+            if (val > 0) {
+              streak++;
+              checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+              break;
+            }
+          }
+          setStreakDays(streak);
         }
+
+        newWeekProgress[currentIranDayIndex] = todayPct;
+        setWeekDaysProgress(newWeekProgress);
       } catch (err) {
-        console.error('خطای غیرمنتظره در سرور:', err);
+        console.error("خطا در بازیابی داده‌ها:", err);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchChecklistProgress();
-  }, []);
+    loadUserData();
+  }, [todayStr, currentIranDayIndex]);
 
-  // ۲. محاسبات پیشرفت
-  const totalCount = checklistData.length;
-  const completedCount = Object.keys(completedItems).length;
-  const todayProgress = Math.round((completedCount / totalCount) * 100);
-const persianDays = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
-const todayDayName = persianDays[(new Date().getDay() + 1) % 7];
+  // ۲. ذخیره وضعیت جدید بدون فیلدهای اضافه
+  const toggleItem = async (itemId: string) => {
+    const updated = completedItems.includes(itemId)
+      ? completedItems.filter((id) => id !== itemId)
+      : [...completedItems, itemId];
 
-  const currentWeeklyData = weeklyData.map((item) =>
-  item.day === todayDayName ? { ...item, percent: todayProgress } : item
-);
+    setCompletedItems(updated);
+    const percentage = Math.round((updated.length / CHECKLIST_ITEMS.length) * 100);
 
-  // ۳. تغییر وضعیت تیک و سینک با Supabase
-  const toggleItem = async (id: string) => {
-    const isCurrentlyCompleted = !!completedItems[id];
-    const newStatus = !isCurrentlyCompleted;
-
-    setCompletedItems((prev) => {
-      const updated = { ...prev };
-      if (newStatus) {
-        updated[id] = true;
-      } else {
-        delete updated[id];
-      }
-      return updated;
+    setWeekDaysProgress((prev) => {
+      const copy = [...prev];
+      copy[currentIranDayIndex] = percentage;
+      return copy;
     });
 
-    try {
-      await supabase
-        .from('checklist_progress')
-        .upsert(
+    localStorage.setItem(`checklist_${todayStr}`, JSON.stringify(updated));
+
+    if (userId) {
+      try {
+        const { error } = await supabase.from("checklist_progress").upsert(
           {
-            user_id: 'guest_user',
-            item_id: id,
-            completed: newStatus,
-            updated_at: new Date().toISOString(),
+            user_id: userId,
+            date: todayStr,
+            completed_items: updated,
+            progress_percentage: percentage,
+            percentage: percentage,
           },
-          { onConflict: 'user_id,item_id' }
+          { onConflict: "user_id,date" }
         );
-    } catch (err) {
-      console.error('خطای ارتباط با دیتابیس:', err);
+
+        if (error) {
+          console.error("خطا در ذخیره وضعیت چک‌لیست:", error.message);
+        }
+      } catch (err) {
+        console.error("خطا در ذخیره وضعیت چک‌لیست:", err);
+      }
     }
   };
 
+  const weeklyAvg = useMemo(() => {
+    const filledDays = weekDaysProgress.filter((p) => p > 0);
+    if (filledDays.length === 0) return 0;
+    const sum = filledDays.reduce((acc, curr) => acc + curr, 0);
+    return Math.round(sum / filledDays.length);
+  }, [weekDaysProgress]);
+
   return (
-    <main className="min-h-screen bg-[#F7FAFC] py-10 px-4 sm:px-6 lg:px-8 dir-rtl font-[family-name:var(--font-vazirmatn)]" dir="rtl">
+    <div className="min-h-screen bg-[#eaf4f4] py-8 px-4 sm:px-6 lg:px-8 font-[Vazirmatn] text-slate-900 dir-rtl" dir="rtl">
       <div className="max-w-4xl mx-auto space-y-6">
-        
-        {/* ۱. کارت‌های آمار بالای صفحه */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          
-          {/* کارت ۱: پیشرفت امروز (آبی تیره گرادیانت) */}
-          <div className="bg-gradient-to-br from-[#0B4F6C] to-[#083344] rounded-3xl p-6 text-white shadow-sm flex flex-col justify-between h-36 relative overflow-hidden">
-            <div className="flex justify-end">
-              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-3xl font-extrabold tracking-tight">{todayProgress}%</span>
-              <p className="text-xs text-slate-200 mt-1">پیشرفت امروز</p>
-            </div>
-          </div>
 
-          {/* کارت ۲: میانگین هفته */}
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col justify-between h-36">
-            <div className="flex justify-end">
-              <div className="w-9 h-9 rounded-xl bg-cyan-50 flex items-center justify-center">
-                <svg className="w-5 h-5 text-[#0B4F6C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-3xl font-extrabold text-[#0F2942]">0%</span>
-              <p className="text-xs text-slate-400 mt-1">میانگین هفته</p>
-            </div>
-          </div>
-
-          {/* کارت ۳: رکورد پیوسته */}
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col justify-between h-36">
-            <div className="flex justify-end">
-              <div className="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center">
-                <svg className="w-5 h-5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-                </svg>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-3xl font-extrabold text-[#0F2942]">0 روز</span>
-              <p className="text-xs text-slate-400 mt-1">رکورد پیوسته</p>
-            </div>
-          </div>
-
+        {/* هدر */}
+        <div className="text-center space-y-1">
+          <h1 className="text-3xl sm:text-4xl font-black text-[#113a53]">
+            چک‌لیست روزانه من
+          </h1>
+          <p className="text-slate-800 text-sm font-semibold">
+            امروز: {todayPersianDate}
+          </p>
         </div>
 
-        {/* ۲. نوار پیشرفت امروز (دقیقاً مطابق عکس) */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
-          <div className="flex justify-between items-center text-sm font-bold text-[#0F2942]">
-            <span>پیشرفت امروز</span>
-            <span className="text-slate-600 font-extrabold">{completedCount} از {totalCount}</span>
+        {/* کارت‌های آمار */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-[#113a53] text-white rounded-3xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden">
+            <div className="flex justify-end">
+              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                <Check className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <span className="text-4xl sm:text-5xl font-black block tracking-tight">
+                {currentPercentage}%
+              </span>
+              <span className="text-xs sm:text-sm font-bold text-teal-100 mt-1 block">
+                پیشرفت امروز
+              </span>
+            </div>
           </div>
 
-          {/* Track و نوار پرشونده از راست به چپ */}
-          <div className="w-full bg-sky-100 rounded-full h-3 overflow-hidden">
+          <div className="bg-white rounded-3xl p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
+            <div className="flex justify-end">
+              <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-teal-700" />
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <span className="text-4xl sm:text-5xl font-black text-[#113a53] block tracking-tight">
+                {weeklyAvg}%
+              </span>
+              <span className="text-xs sm:text-sm font-bold text-slate-800 mt-1 block">
+                میانگین هفته
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
+            <div className="flex justify-end">
+              <div className="w-10 h-10 rounded-2xl bg-cyan-50 flex items-center justify-center">
+                <Flame className="w-5 h-5 text-cyan-700" />
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <span className="text-4xl sm:text-5xl font-black text-[#113a53] block tracking-tight">
+                {streakDays} روز
+              </span>
+              <span className="text-xs sm:text-sm font-bold text-slate-800 mt-1 block">
+                رکورد پیوسته
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* نوار پیشرفت */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-3">
+          <div className="flex justify-between items-center text-sm font-bold text-[#113a53]">
+            <span>پیشرفت امروز</span>
+            <span>
+              {completedItems.length} از {CHECKLIST_ITEMS.length}
+            </span>
+          </div>
+          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
             <div
-              className="bg-[#0B4F6C] h-full rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${todayProgress}%` }}
+              className="h-full bg-[#113a53] transition-all duration-500 rounded-full"
+              style={{ width: `${currentPercentage}%` }}
             />
           </div>
         </div>
 
-        {/* ۳. لیست چک‌لیست */}
-        {loading ? (
-          <div className="text-center py-12 text-slate-400">در حال دریافت داده‌ها...</div>
-        ) : (
-          <div className="space-y-3">
-            {checklistData.map((item) => {
-              const isCompleted = !!completedItems[item.id];
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => toggleItem(item.id)}
-                  className={`p-5 rounded-3xl border transition-all duration-200 cursor-pointer flex items-center justify-between select-none ${
-                    isCompleted
-                      ? 'bg-[#EBF7F2] border-[#72CBB0] shadow-sm'
-                      : 'bg-white border-slate-100 shadow-sm hover:border-slate-300'
-                  }`}
-                >
-                  <div className="text-right flex-1 pl-4">
-                    <h3 className={`font-bold text-base ${isCompleted ? 'line-through text-[#285A48]' : 'text-[#0F2942]'}`}>
-                      {item.title}
-                    </h3>
-                    <p className={`text-xs mt-1 ${isCompleted ? 'text-[#3E7C66]' : 'text-slate-400'}`}>
-                      {item.description}
-                    </p>
-                  </div>
-
-                  {/* چک‌باکس با استایل منطبق */}
-                  <div
-                    className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
-                      isCompleted
-                        ? 'bg-[#2BB282] text-white shadow-sm'
-                        : 'border-2 border-slate-200 bg-white'
+        {/* آیتم‌های چک‌لیست */}
+        <div className="space-y-3">
+          {CHECKLIST_ITEMS.map((item) => {
+            const isChecked = completedItems.includes(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => toggleItem(item.id)}
+                className={`w-full text-right p-4 sm:p-5 rounded-2xl border transition-all flex items-center justify-between gap-4 cursor-pointer ${
+                  isChecked
+                    ? "bg-[#eef7f6] border-teal-300 shadow-sm"
+                    : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
+                }`}
+              >
+                <div className="space-y-1">
+                  <h3
+                    className={`font-bold text-base sm:text-lg ${
+                      isChecked ? "text-teal-900 line-through decoration-teal-500/50" : "text-[#113a53]"
                     }`}
                   >
-                    {isCompleted && (
-                      <svg className="w-4 h-4 stroke-current stroke-[3] fill-none" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
+                    {item.title}
+                  </h3>
+                  <p className="text-slate-800 text-xs sm:text-sm font-medium leading-relaxed">
+                    {item.subtitle}
+                  </p>
+                </div>
+
+                <div className="shrink-0">
+                  <div
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      isChecked
+                        ? "bg-teal-700 border-teal-700 text-white"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {isChecked && <Check className="w-4 h-4 sm:w-5 sm:h-5 stroke-[3]" />}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* نمودار هفتگی */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-black text-[#113a53] text-lg sm:text-xl">
+              نگاهی به ۷ روز اخیر
+            </h2>
+            <Link
+              href="/progress"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-teal-800 hover:text-teal-900 transition"
+            >
+              <span>مشاهده جزئیات صفحه پیشرفت من</span>
+              <TrendingUp className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-4 pb-2 items-end h-48">
+            {WEEK_DAYS_FA.map((day, idx) => {
+              const dayPct = weekDaysProgress[idx] || 0;
+              const isToday = idx === currentIranDayIndex;
+
+              return (
+                <div key={day.key} className="flex flex-col items-center h-full justify-end group">
+                  <span
+                    className={`text-[10px] sm:text-xs font-bold mb-1 transition-opacity ${
+                      dayPct > 0 || isToday ? "text-[#113a53] opacity-100" : "opacity-0 group-hover:opacity-100 text-slate-400"
+                    }`}
+                  >
+                    {dayPct}%
+                  </span>
+
+                  <div className="w-full max-w-[36px] sm:max-w-[44px] h-32 bg-[#eaf4f4] rounded-xl relative overflow-hidden flex items-end p-1 border border-slate-200/60">
+                    <div
+                      className={`w-full rounded-lg transition-all duration-500 ease-out ${
+                        isToday ? "bg-[#113a53]" : "bg-teal-700"
+                      }`}
+                      style={{ height: `${dayPct}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-2.5 flex flex-col items-center">
+                    <span
+                      className={`font-bold text-xs sm:text-sm ${
+                        isToday ? "text-[#113a53] font-black underline underline-offset-4 decoration-2 decoration-teal-600" : "text-slate-800"
+                      }`}
+                    >
+                      {day.label}
+                    </span>
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
 
-        {/* ۴. نگاهی به ۷ روز اخیر */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
-          <h2 className="text-right text-lg font-bold text-[#0F2942]">نگاهی به ۷ روز اخیر</h2>
-          
-          <div className="flex items-end justify-between px-4 pt-6 pb-2 h-44">
-            {currentWeeklyData.map((item, index) => (
-              <div key={index} className="flex flex-col items-center space-y-3 h-full justify-end group">
-                <div className="w-8 sm:w-10 bg-slate-100 rounded-full h-full relative overflow-hidden flex items-end">
-                  <div
-                    className="w-full bg-[#0B4F6C] rounded-full transition-all duration-500 ease-out"
-                    style={{ height: `${item.percent}%` }}
-                  />
-                </div>
-                <span className="text-xs font-semibold text-slate-400 group-hover:text-[#0F2942] transition-colors">
-                  {item.day}
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* دکمه شناور */}
+        <div className="fixed bottom-5 left-5 z-40">
+          <Link
+            href="/chat"
+            className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#113a53] text-white shadow-lg hover:bg-[#163857] transition text-sm font-bold"
+          >
+            <Bot className="w-5 h-5 text-teal-300" />
+            <span>کوچ ارگونومیک</span>
+          </Link>
         </div>
 
       </div>
-    </main>
+    </div>
   );
 }
