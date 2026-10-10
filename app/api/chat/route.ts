@@ -103,8 +103,9 @@ export async function POST(req: Request) {
       );
     }
 
+    // تغییر مدل به نسخه معتبر و فعال llama-3.3-70b-versatile
     const response = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         {
           role: 'system',
