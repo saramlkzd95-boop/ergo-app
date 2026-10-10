@@ -307,29 +307,29 @@ export default function ChecklistPage() {
   }, [weekDaysProgress]);
 
   return (
-    <div className="min-h-screen bg-[#eaf4f4] py-8 px-4 sm:px-6 lg:px-8 font-[Vazirmatn] text-slate-900 dir-rtl" dir="rtl">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#eaf4f4] py-6 sm:py-8 px-3 sm:px-6 lg:px-8 font-[Vazirmatn] text-slate-900 dir-rtl overflow-x-hidden" dir="rtl">
+      <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
 
         {/* هدر */}
         <div className="text-center space-y-1">
-          <h1 className="text-3xl sm:text-4xl font-black text-[#113a53]">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#113a53]">
             چک‌لیست روزانه من
           </h1>
-          <p className="text-slate-800 text-sm font-semibold">
+          <p className="text-slate-800 text-xs sm:text-sm font-semibold">
             امروز: {todayPersianDate}
           </p>
         </div>
 
         {/* کارت‌های آمار */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-[#113a53] text-white rounded-3xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
+          <div className="bg-[#113a53] text-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-sm relative overflow-hidden">
             <div className="flex justify-end">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
                 <Check className="w-5 h-5 text-white" />
               </div>
             </div>
-            <div className="mt-4 text-center">
-              <span className="text-4xl sm:text-5xl font-black block tracking-tight">
+            <div className="mt-3 sm:mt-4 text-center">
+              <span className="text-3xl sm:text-5xl font-black block tracking-tight">
                 {currentPercentage}%
               </span>
               <span className="text-xs sm:text-sm font-bold text-teal-100 mt-1 block">
@@ -338,14 +338,14 @@ export default function ChecklistPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
             <div className="flex justify-end">
-              <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-teal-50 flex items-center justify-center">
                 <Calendar className="w-5 h-5 text-teal-700" />
               </div>
             </div>
-            <div className="mt-4 text-center">
-              <span className="text-4xl sm:text-5xl font-black text-[#113a53] block tracking-tight">
+            <div className="mt-3 sm:mt-4 text-center">
+              <span className="text-3xl sm:text-5xl font-black text-[#113a53] block tracking-tight">
                 {weeklyAvg}%
               </span>
               <span className="text-xs sm:text-sm font-bold text-slate-800 mt-1 block">
@@ -354,14 +354,14 @@ export default function ChecklistPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
             <div className="flex justify-end">
-              <div className="w-10 h-10 rounded-2xl bg-cyan-50 flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-cyan-50 flex items-center justify-center">
                 <Flame className="w-5 h-5 text-cyan-700" />
               </div>
             </div>
-            <div className="mt-4 text-center">
-              <span className="text-4xl sm:text-5xl font-black text-[#113a53] block tracking-tight">
+            <div className="mt-3 sm:mt-4 text-center">
+              <span className="text-3xl sm:text-5xl font-black text-[#113a53] block tracking-tight">
                 {streakDays} روز
               </span>
               <span className="text-xs sm:text-sm font-bold text-slate-800 mt-1 block">
@@ -372,14 +372,14 @@ export default function ChecklistPage() {
         </div>
 
         {/* نوار پیشرفت */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-3">
-          <div className="flex justify-between items-center text-sm font-bold text-[#113a53]">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 space-y-2.5 sm:space-y-3">
+          <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-[#113a53]">
             <span>پیشرفت امروز</span>
             <span>
               {completedItems.length} از {CHECKLIST_ITEMS.length}
             </span>
           </div>
-          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+          <div className="w-full h-2.5 sm:h-3 bg-slate-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-[#113a53] transition-all duration-500 rounded-full"
               style={{ width: `${currentPercentage}%` }}
@@ -396,15 +396,15 @@ export default function ChecklistPage() {
                 key={item.id}
                 type="button"
                 onClick={() => toggleItem(item.id)}
-                className={`w-full text-right p-4 sm:p-5 rounded-2xl border transition-all flex items-center justify-between gap-4 cursor-pointer ${
+                className={`w-full text-right p-3.5 sm:p-5 rounded-2xl border transition-all flex items-start sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer ${
                   isChecked
                     ? "bg-[#eef7f6] border-teal-300 shadow-sm"
                     : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
                 }`}
               >
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1 min-w-0">
                   <h3
-                    className={`font-bold text-base sm:text-lg ${
+                    className={`font-bold text-sm sm:text-base md:text-lg leading-snug ${
                       isChecked ? "text-teal-900 line-through decoration-teal-500/50" : "text-[#113a53]"
                     }`}
                   >
@@ -415,29 +415,29 @@ export default function ChecklistPage() {
                   </p>
                 </div>
 
-                <div className="shrink-0">
+                <div className="shrink-0 pt-0.5 sm:pt-0">
                   <div
-                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
+                    className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
                       isChecked
                         ? "bg-teal-700 border-teal-700 text-white"
                         : "border-slate-300 bg-white"
                     }`}
                   >
-                    {isChecked && <Check className="w-4 h-4 sm:w-5 sm:h-5 stroke-[3]" />}
+                    {isChecked && <Check className="w-3.5 h-3.5 sm:w-5 sm:h-5 stroke-[3]" />}
                   </div>
                 </div>
               </button>
             );
           })}
 
-          {/* سوال ویژه: ثبت سطح خستگی یا درد عضلانی پایان روز (ایزوله از درصد پیشرفت) */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm space-y-4 mt-6">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center shrink-0 mt-0.5">
-                <Activity className="w-5 h-5" />
+          {/* سوال ویژه: ثبت سطح خستگی یا درد عضلانی پایان روز */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-4 mt-6">
+            <div className="flex items-start gap-2.5 sm:gap-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center shrink-0 mt-0.5">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-base sm:text-lg text-[#113a53]">
+              <div className="min-w-0">
+                <h3 className="font-bold text-sm sm:text-base md:text-lg text-[#113a53] leading-snug">
                   ثبت سطح خستگی یا درد عضلانی پایان روز
                 </h3>
                 <p className="text-slate-700 text-xs sm:text-sm font-medium mt-1 leading-relaxed">
@@ -447,7 +447,7 @@ export default function ChecklistPage() {
             </div>
 
             {/* گزینه‌های سه‌گانه انتخابی */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 pt-1">
               {DISCOMFORT_OPTIONS.map((option) => {
                 const isSelected = discomfortLevel === option.id;
                 return (
@@ -455,72 +455,72 @@ export default function ChecklistPage() {
                     key={option.id}
                     type="button"
                     onClick={() => handleDiscomfortSelect(option.id)}
-                    className={`py-3 px-4 rounded-xl border text-sm font-bold transition-all text-center flex items-center justify-center gap-2 cursor-pointer ${
+                    className={`py-2.5 sm:py-3 px-3.5 sm:px-4 rounded-xl border text-xs sm:text-sm font-bold transition-all text-center flex items-center justify-center gap-2 cursor-pointer w-full ${
                       isSelected
                         ? `${option.color} ring-2 ring-[#113a53] shadow-xs`
                         : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     <span
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center text-[10px] ${
+                      className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border flex items-center justify-center text-[10px] shrink-0 ${
                         isSelected ? "border-current bg-current text-white" : "border-slate-400"
                       }`}
                     >
                       {isSelected && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
                     </span>
-                    <span>{option.label}</span>
+                    <span className="truncate">{option.label}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="text-[11px] text-slate-600 text-left">
+            <p className="text-[10px] sm:text-[11px] text-slate-600 text-left">
               * این پایش برای ارزیابی اثر ارگونومیک بوده و اثری بر درصد پیشرفت روزانه ندارد.
             </p>
           </div>
         </div>
 
         {/* نمودار هفتگی */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-black text-[#113a53] text-lg sm:text-xl">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200/80 space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h2 className="font-black text-[#113a53] text-base sm:text-xl">
               نگاهی به ۷ روز اخیر
             </h2>
             <Link
               href="/progress"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-teal-800 hover:text-teal-900 transition"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-teal-800 hover:text-teal-900 transition self-end sm:self-auto"
             >
               <span>مشاهده جزئیات صفحه پیشرفت من</span>
-              <TrendingUp className="w-4 h-4" />
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-4 pb-2 items-end h-48">
+          <div className="grid grid-cols-7 gap-1 sm:gap-3 md:gap-4 pt-3 pb-2 items-end h-44 sm:h-48">
             {WEEK_DAYS_FA.map((day, idx) => {
               const dayPct = weekDaysProgress[idx] || 0;
               const isToday = idx === currentIranDayIndex;
 
               return (
-                <div key={day.key} className="flex flex-col items-center h-full justify-end group">
+                <div key={day.key} className="flex flex-col items-center h-full justify-end group min-w-0">
                   <span
-                    className={`text-[10px] sm:text-xs font-bold mb-1 transition-opacity ${
+                    className={`text-[9px] sm:text-xs font-bold mb-1 transition-opacity ${
                       dayPct > 0 || isToday ? "text-[#113a53] opacity-100" : "opacity-0 group-hover:opacity-100 text-slate-400"
                     }`}
                   >
                     {dayPct}%
                   </span>
 
-                  <div className="w-full max-w-[36px] sm:max-w-[44px] h-32 bg-[#eaf4f4] rounded-xl relative overflow-hidden flex items-end p-1 border border-slate-200/60">
+                  <div className="w-full max-w-[28px] sm:max-w-[40px] md:max-w-[44px] h-28 sm:h-32 bg-[#eaf4f4] rounded-lg sm:rounded-xl relative overflow-hidden flex items-end p-0.5 sm:p-1 border border-slate-200/60">
                     <div
-                      className={`w-full rounded-lg transition-all duration-500 ease-out ${
+                      className={`w-full rounded-md sm:rounded-lg transition-all duration-500 ease-out ${
                         isToday ? "bg-[#113a53]" : "bg-teal-700"
                       }`}
                       style={{ height: `${dayPct}%` }}
                     />
                   </div>
 
-                  <div className="mt-2.5 flex flex-col items-center">
+                  <div className="mt-2 sm:mt-2.5 flex flex-col items-center">
                     <span
-                      className={`font-bold text-xs sm:text-sm ${
+                      className={`font-bold text-[11px] sm:text-sm ${
                         isToday ? "text-[#113a53] font-black underline underline-offset-4 decoration-2 decoration-teal-600" : "text-slate-800"
                       }`}
                     >

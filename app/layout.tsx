@@ -1,4 +1,5 @@
 import "./globals.css";
+import type { Viewport } from "next";
 import AuthGuard from "@/components/AuthGuard";
 import Navbar from "@/components/Navbar";
 import ErgoChatBot from "@/components/ErgoChatBot";
@@ -9,6 +10,12 @@ export const metadata = {
   description: "راهکار هوشمند اصلاح الگوهای حرکتی و پاسچر کاری",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -16,10 +23,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fa" dir="rtl">
-      <body className="bg-[#eaf4f4] font-[Vazirmatn] text-slate-900 min-h-screen flex flex-col">
+      <body className="bg-[#eaf4f4] font-[Vazirmatn] text-slate-900 min-h-screen flex flex-col overflow-x-hidden antialiased">
         <AuthGuard>
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 w-full max-w-full">{children}</main>
           {/* نوار یادآور در پایین صفحات (به جز صفحه اصلی) */}
           <NotificationManager variant="floating" />
         </AuthGuard>
