@@ -66,10 +66,21 @@ export default function ErgoChatBot() {
         }),
       });
 
-      const data = await response.json();
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch {
+        // در صورتی که سرور به جای JSON پاسخ HTML یا 404 برگرداند
+        data = null;
+      }
 
-      if (!response.ok || !data.reply) {
-        throw new Error('پاسخی از سرور دریافت نشد.');
+      if (!response.ok || !data?.reply) {
+        const errorText =
+          data?.error ||
+          (response.status === 404
+            ? 'مسیر سرویس در سرور یافت نشد (کد 404). لطفاً وضعیت استقرار در ورسل را بررسی کنید.'
+            : `خطای سرور (${response.status})`);
+        throw new Error(errorText);
       }
 
       setMessages((currentMessages) => [
@@ -79,13 +90,16 @@ export default function ErgoChatBot() {
           content: data.reply,
         },
       ]);
-    } catch {
+    } catch (err: any) {
+      const displayMessage =
+        err?.message ||
+        'در ارتباط با دستیار ارگونو مشکلی پیش آمد. لطفاً کمی بعد دوباره تلاش کنید.';
+
       setMessages((currentMessages) => [
         ...currentMessages,
         {
           role: 'assistant',
-          content:
-            'در ارتباط با دستیار ارگونو مشکلی پیش آمد. لطفاً کمی بعد دوباره تلاش کنید.',
+          content: displayMessage,
         },
       ]);
     } finally {
