@@ -8,6 +8,14 @@ const groq = new OpenAI({
   baseURL: 'https://api.groq.com/openai/v1',
 });
 
+// فهرست مدل‌های معتبر به ترتیب اولویت (در صورت خطا در مدل اول، مدل بعدی اجرا می‌شود)
+const AVAILABLE_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-70b-versatile',
+  'llama-3.1-8b-instant',
+  'mixtral-8x7b-32768',
+];
+
 const SYSTEM_PROMPT = `
 شما «دستیار ارگو» هستید؛ یک دستیار آموزشی هوشمند در زمینه ارگونومی محیط کار.
 
@@ -103,23 +111,38 @@ export async function POST(req: Request) {
       );
     }
 
-    // تغییر مدل به نسخه معتبر و فعال llama-3.3-70b-versatile
-    const response = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: SYSTEM_PROMPT,
-        },
-        ...messages,
-      ],
-      temperature: 0.3,
-      max_tokens: 1000,
-    });
+    let reply = '';
+    let lastError: any = null;
 
-    const reply =
-      response.choices[0]?.message?.content?.trim() ||
-      'متأسفانه در حال حاضر پاسخی دریافت نشد.';
+    // تلاش برای دریافت پاسخ با استفاده از مدل‌های پشتیبان در صورت خطا
+    for (const model of AVAILABLE_MODELS) {
+      try {
+        const response = await groq.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: SYSTEM_PROMPT,
+            },
+            ...messages,
+          ],
+          temperature: 0.3,
+          max_tokens: 1000,
+        });
+
+        reply = response.choices[0]?.message?.content?.trim() || '';
+        if (reply) {
+          break; // اگر پاسخ با موفقیت دریافت شد، از حلقه خارج شو
+        }
+      } catch (err: any) {
+        console.warn(`Model ${model} failed, trying next fallback:`, err?.message || err);
+        lastError = err;
+      }
+    }
+
+    if (!reply) {
+      throw lastError || new Error('هیچ‌کدام از مدل‌های هوش مصنوعی پاسخگو نبودند.');
+    }
 
     return NextResponse.json({ reply });
   } catch (error: any) {
