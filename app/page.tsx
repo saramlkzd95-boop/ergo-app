@@ -32,7 +32,7 @@ export default function Home() {
             {/* دکمه‌های اقدام (CTA) */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
               <Link
-                href="/dashboard"
+                href="/principles"
                 className="bg-[#1b4332] hover:bg-[#2d6a4f] text-white px-6 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
               >
                 <span>شروع برنامه شخصی</span>
