@@ -8,11 +8,11 @@ const groq = new OpenAI({
   baseURL: 'https://api.groq.com/openai/v1',
 });
 
-// مدل‌های پایدار و معتبر در Groq
+// مدل‌های رسمی، فعال و پایدار در Groq
 const AVAILABLE_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
   'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'qwen/qwen3.8-27b'
 ];
 
 const SYSTEM_PROMPT = `
@@ -85,13 +85,13 @@ export async function POST(req: Request) {
             },
             ...messages,
           ],
-          temperature: 0.2, // دمای پایین‌تر برای لحن دقیق‌تر و جمله‌بندی منسجم‌تر
-          max_tokens: 450, // محدودسازی سقف پاسخ برای کوتاه و جمع‌وجور بودن
+          temperature: 0.3,
+          max_tokens: 450,
         });
 
         reply = response.choices[0]?.message?.content?.trim() || '';
         if (reply) {
-          break;
+          break; // دریافت موفق پاسخ و پایان چرخه
         }
       } catch (err: any) {
         console.warn(`Model ${model} failed, trying next:`, err?.message || err);
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        error: `خطای اتصال: ${errorMessage}`,
+        error: `خطای ارتباط با هوش مصنوعی: ${errorMessage}`,
       },
       { status: 500 }
     );
