@@ -8,12 +8,11 @@ const groq = new OpenAI({
   baseURL: 'https://api.groq.com/openai/v1',
 });
 
-// فهرست مدل‌های معتبر به ترتیب اولویت (در صورت خطا در مدل اول، مدل بعدی اجرا می‌شود)
+// مدل‌های فعال و پشتیبانی‌شده در حال حاضر در Groq
 const AVAILABLE_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-70b-versatile',
-  'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'qwen/qwen3.8-27b',
 ];
 
 const SYSTEM_PROMPT = `
@@ -114,7 +113,7 @@ export async function POST(req: Request) {
     let reply = '';
     let lastError: any = null;
 
-    // تلاش برای دریافت پاسخ با استفاده از مدل‌های پشتیبان در صورت خطا
+    // تلاش برای دریافت پاسخ با مدل‌های فعال
     for (const model of AVAILABLE_MODELS) {
       try {
         const response = await groq.chat.completions.create({
@@ -132,16 +131,16 @@ export async function POST(req: Request) {
 
         reply = response.choices[0]?.message?.content?.trim() || '';
         if (reply) {
-          break; // اگر پاسخ با موفقیت دریافت شد، از حلقه خارج شو
+          break;
         }
       } catch (err: any) {
-        console.warn(`Model ${model} failed, trying next fallback:`, err?.message || err);
+        console.warn(`Model ${model} failed, trying next:`, err?.message || err);
         lastError = err;
       }
     }
 
     if (!reply) {
-      throw lastError || new Error('هیچ‌کدام از مدل‌های هوش مصنوعی پاسخگو نبودند.');
+      throw lastError || new Error('هیچ‌کدام از مدل‌های هوش مصنوعی فعال پاسخگو نبودند.');
     }
 
     return NextResponse.json({ reply });
