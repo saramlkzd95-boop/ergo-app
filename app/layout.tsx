@@ -2,6 +2,7 @@ import "./globals.css";
 import AuthGuard from "@/components/AuthGuard";
 import Navbar from "@/components/Navbar";
 import ErgoChatBot from "@/components/ErgoChatBot";
+import NotificationManager from "@/components/NotificationManager";
 
 export const metadata = {
   title: "ارگونو | سامانه ارگونومی و سلامت کار",
@@ -17,14 +18,12 @@ export default function RootLayout({
     <html lang="fa" dir="rtl">
       <body className="bg-[#eaf4f4] font-[Vazirmatn] text-slate-900 min-h-screen flex flex-col">
         <AuthGuard>
-          {/* نوبار هوشمند شامل منوها و دکمه ورود/خروج */}
           <Navbar />
-
-          {/* محتوای صفحات مختلف */}
           <main className="flex-1">{children}</main>
+          {/* نوار یادآور در پایین صفحات (به جز صفحه اصلی) */}
+          <NotificationManager variant="floating" />
         </AuthGuard>
 
-        {/* دستیار ارگونو */}
         <ErgoChatBot />
       </body>
     </html>

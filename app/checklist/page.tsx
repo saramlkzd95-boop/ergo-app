@@ -8,7 +8,7 @@ import {
   Flame,
   TrendingUp,
   Check,
-  Bot,
+  Activity,
 } from "lucide-react";
 
 interface ChecklistItem {
@@ -17,6 +17,7 @@ interface ChecklistItem {
   subtitle: string;
 }
 
+// لیست آیتم‌های محاسباتی ارگونومی (آیتم کشش گردن حذف شده است)
 const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
     id: "setup_workstation",
@@ -35,18 +36,13 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   },
   {
     id: "chin_tuck",
-    title: "تمرین Chin Tuck",
-    subtitle: "۱۰ تکرار در ۳ نوبت طی روز.",
+    title: "انجام تمرینات اصلاحی",
+    subtitle: "انجام روزانه تمرینات، 2 نوبت در روز.",
   },
   {
     id: "shoulder_squeeze",
-    title: "تمرین فشردن کتف‌ها",
-    subtitle: "۱۵ تکرار در ۲ نوبت.",
-  },
-  {
-    id: "neck_stretch",
-    title: "کشش گردن",
-    subtitle: "هر طرف ۳۰ ثانیه، ۲ ست.",
+    title: "تغییر وضعیت نشستن",
+    subtitle: "بعد از 1 ساعت کار با رایانه، وضعیت نشستن خود را تغییر دهید.",
   },
   {
     id: "posture_check",
@@ -58,6 +54,13 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
     title: "نوشیدن آب کافی",
     subtitle: "حداقل ۶ تا ۸ لیوان آب در طول روز.",
   },
+];
+
+// گزینه‌های خودپایشی خستگی/درد عضلانی (بدون تاثیر در درصد پیشرفت)
+const DISCOMFORT_OPTIONS = [
+  { id: "comfortable", label: "احساس راحتی", color: "text-emerald-700 bg-emerald-50 border-emerald-300" },
+  { id: "mild_pain", label: "درد خفیف", color: "text-amber-700 bg-amber-50 border-amber-300" },
+  { id: "fatigue_cramp", label: "خستگی یا گرفتگی", color: "text-rose-700 bg-rose-50 border-rose-300" },
 ];
 
 // نگاشت روزهای هفته
@@ -83,6 +86,7 @@ const WEEK_DAYS_FA = [
 
 export default function ChecklistPage() {
   const [completedItems, setCompletedItems] = useState<string[]>([]);
+  const [discomfortLevel, setDiscomfortLevel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -104,11 +108,12 @@ export default function ChecklistPage() {
     return JS_DAY_TO_IRAN_DAY_INDEX[jsDay] ?? 0;
   }, []);
 
+  // محاسبه درصد پیشرفت صرفاً بر مبنای آیتم‌های اصلی ارگونومی
   const currentPercentage = useMemo(() => {
     return Math.round((completedItems.length / CHECKLIST_ITEMS.length) * 100);
   }, [completedItems]);
 
-  // ۱. بارگذاری داده‌ها از دیتابیس
+  // ۱. بارگذاری داده‌ها از دیتابیس یا LocalStorage
   useEffect(() => {
     async function loadUserData() {
       setLoading(true);
@@ -119,6 +124,9 @@ export default function ChecklistPage() {
 
         if (!user) {
           const localData = localStorage.getItem(`checklist_${todayStr}`);
+          const localDiscomfort = localStorage.getItem(`discomfort_${todayStr}`);
+          if (localDiscomfort) setDiscomfortLevel(localDiscomfort);
+
           if (localData) {
             const parsed: string[] = JSON.parse(localData);
             setCompletedItems(parsed);
@@ -147,12 +155,17 @@ export default function ChecklistPage() {
         if (todayRecord) {
           const items = Array.isArray(todayRecord.completed_items) ? todayRecord.completed_items : [];
           setCompletedItems(items);
+          if (todayRecord.discomfort_level) {
+            setDiscomfortLevel(todayRecord.discomfort_level);
+          }
           todayPct =
             todayRecord.progress_percentage ??
             todayRecord.percentage ??
             Math.round((items.length / CHECKLIST_ITEMS.length) * 100);
         } else {
           const localData = localStorage.getItem(`checklist_${todayStr}`);
+          const localDiscomfort = localStorage.getItem(`discomfort_${todayStr}`);
+          if (localDiscomfort) setDiscomfortLevel(localDiscomfort);
           if (localData) {
             const parsed: string[] = JSON.parse(localData);
             setCompletedItems(parsed);
@@ -216,7 +229,7 @@ export default function ChecklistPage() {
     loadUserData();
   }, [todayStr, currentIranDayIndex]);
 
-  // ۲. ذخیره وضعیت جدید بدون فیلدهای اضافه
+  // ۲. ثبت یا تغییر چک‌باکس‌های روزانه
   const toggleItem = async (itemId: string) => {
     const updated = completedItems.includes(itemId)
       ? completedItems.filter((id) => id !== itemId)
@@ -242,15 +255,46 @@ export default function ChecklistPage() {
             completed_items: updated,
             progress_percentage: percentage,
             percentage: percentage,
+            discomfort_level: discomfortLevel,
           },
           { onConflict: "user_id,date" }
         );
 
-        if (error) {
-          console.error("خطا در ذخیره وضعیت چک‌لیست:", error.message);
-        }
+        if (error) console.error("خطا در ذخیره وضعیت چک‌لیست:", error.message);
       } catch (err) {
         console.error("خطا در ذخیره وضعیت چک‌لیست:", err);
+      }
+    }
+  };
+
+  // ۳. ثبت سطح درد یا خستگی پایان روز (مستقل از نمودار و بدون تغییر در درصد)
+  const handleDiscomfortSelect = async (selectedLevel: string) => {
+    const newLevel = discomfortLevel === selectedLevel ? null : selectedLevel;
+    setDiscomfortLevel(newLevel);
+
+    if (newLevel) {
+      localStorage.setItem(`discomfort_${todayStr}`, newLevel);
+    } else {
+      localStorage.removeItem(`discomfort_${todayStr}`);
+    }
+
+    if (userId) {
+      try {
+        const { error } = await supabase.from("checklist_progress").upsert(
+          {
+            user_id: userId,
+            date: todayStr,
+            completed_items: completedItems,
+            progress_percentage: currentPercentage,
+            percentage: currentPercentage,
+            discomfort_level: newLevel,
+          },
+          { onConflict: "user_id,date" }
+        );
+
+        if (error) console.error("خطا در ثبت وضعیت خستگی/درد:", error.message);
+      } catch (err) {
+        console.error("خطا در ثبت وضعیت خستگی/درد:", err);
       }
     }
   };
@@ -385,6 +429,54 @@ export default function ChecklistPage() {
               </button>
             );
           })}
+
+          {/* سوال ویژه: ثبت سطح خستگی یا درد عضلانی پایان روز (ایزوله از درصد پیشرفت) */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm space-y-4 mt-6">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center shrink-0 mt-0.5">
+                <Activity className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base sm:text-lg text-[#113a53]">
+                  ثبت سطح خستگی یا درد عضلانی پایان روز
+                </h3>
+                <p className="text-slate-700 text-xs sm:text-sm font-medium mt-1 leading-relaxed">
+                  بررسی و ثبت سریع وضعیت گردن، شانه و کمر در پایان شیفت کاری:
+                </p>
+              </div>
+            </div>
+
+            {/* گزینه‌های سه‌گانه انتخابی */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              {DISCOMFORT_OPTIONS.map((option) => {
+                const isSelected = discomfortLevel === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleDiscomfortSelect(option.id)}
+                    className={`py-3 px-4 rounded-xl border text-sm font-bold transition-all text-center flex items-center justify-center gap-2 cursor-pointer ${
+                      isSelected
+                        ? `${option.color} ring-2 ring-[#113a53] shadow-xs`
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center text-[10px] ${
+                        isSelected ? "border-current bg-current text-white" : "border-slate-400"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+                    </span>
+                    <span>{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-600 text-left">
+              * این پایش برای ارزیابی اثر ارگونومیک بوده و اثری بر درصد پیشرفت روزانه ندارد.
+            </p>
+          </div>
         </div>
 
         {/* نمودار هفتگی */}
@@ -439,17 +531,6 @@ export default function ChecklistPage() {
               );
             })}
           </div>
-        </div>
-
-        {/* دکمه شناور */}
-        <div className="fixed bottom-5 left-5 z-40">
-          <Link
-            href="/chat"
-            className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#113a53] text-white shadow-lg hover:bg-[#163857] transition text-sm font-bold"
-          >
-            <Bot className="w-5 h-5 text-teal-300" />
-            <span>کوچ ارگونومیک</span>
-          </Link>
         </div>
 
       </div>

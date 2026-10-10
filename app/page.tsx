@@ -40,10 +40,10 @@ export default function Home() {
               </Link>
               
               <Link
-                href="#principles"
+                href="#features"
                 className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 px-6 py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm"
               >
-                آشنایی با اصول ارگونومی
+                آشنایی با امکانات ارگونو
               </Link>
             </div>
           </div>
@@ -65,13 +65,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* بخش یادآور هوشمند ارگونومی (Notification) */}
-      <section className="max-w-6xl mx-auto px-6 mb-8">
-        <NotificationManager />
+      {/* بخش یادآور هوشمند ارگونومی (حالت درون‌صفحه‌ای inline) */}
+      <section className="max-w-6xl mx-auto px-6 mb-12">
+        <NotificationManager variant="inline" />
       </section>
 
       {/* 6 Features Grid */}
-      <section id="features" className="max-w-6xl mx-auto px-6 py-16">
+      <section id="features" className="max-w-6xl mx-auto px-6 py-12">
         <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
             امکانات سامانه ارگونو
@@ -92,7 +92,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* کارت تمرینات کششی (متصل به /exercises) */}
+          {/* کارت تمرینات کششی */}
           <Link
             href="/exercises"
             className="block bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group"

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bot,
   Loader2,
@@ -29,82 +29,113 @@ export default function ErgoChatBot() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // اسکرول نرم به انتهای پیام‌ها
   useEffect(() => {
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
 
-  async function handleSend(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // تابع مشترک ارسال پیام به API
+  const sendMessage = useCallback(
+    async (textToSend: string) => {
+      const trimmedText = textToSend.trim();
+      if (!trimmedText || loading) return;
 
-    const trimmedInput = input.trim();
+      const userMessage: Message = {
+        role: 'user',
+        content: trimmedText,
+      };
 
-    if (!trimmedInput || loading) {
-      return;
-    }
+      setMessages((prev) => {
+        const nextMessages = [...prev, userMessage];
 
-    const userMessage: Message = {
-      role: 'user',
-      content: trimmedInput,
+        // ارسال به سرور
+        (async () => {
+          setLoading(true);
+          try {
+            const response = await fetch('/api/chat', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                messages: nextMessages,
+              }),
+            });
+
+            let data: any = null;
+            try {
+              data = await response.json();
+            } catch {
+              data = null;
+            }
+
+            if (!response.ok || !data?.reply) {
+              const errorText =
+                data?.error ||
+                (response.status === 404
+                  ? 'مسیر سرویس در سرور یافت نشد (کد 404). لطفاً وضعیت استقرار را بررسی کنید.'
+                  : `خطای سرور (${response.status})`);
+              throw new Error(errorText);
+            }
+
+            setMessages((current) => [
+              ...current,
+              {
+                role: 'assistant',
+                content: data.reply,
+              },
+            ]);
+          } catch (err: any) {
+            const displayMessage =
+              err?.message ||
+              'در ارتباط با دستیار ارگونو مشکلی پیش آمد. لطفاً کمی بعد دوباره تلاش کنید.';
+
+            setMessages((current) => [
+              ...current,
+              {
+                role: 'assistant',
+                content: displayMessage,
+              },
+            ]);
+          } finally {
+            setLoading(false);
+          }
+        })();
+
+        return nextMessages;
+      });
+    },
+    [loading]
+  );
+
+  // لیسنر برای باز شدن خودکار چت‌بات در زمان انتخاب «مطمئن نیستم» در چک‌لیست
+  useEffect(() => {
+    const handleOpenAssistant = (event: Event) => {
+      const customEvent = event as CustomEvent<{ prompt?: string }>;
+      setIsOpen(true);
+
+      const prompt = customEvent.detail?.prompt;
+      if (prompt && prompt.trim()) {
+        sendMessage(prompt);
+      }
     };
 
-    const updatedMessages = [...messages, userMessage];
+    window.addEventListener('open-ergo-assistant', handleOpenAssistant);
 
-    setMessages(updatedMessages);
+    return () => {
+      window.removeEventListener('open-ergo-assistant', handleOpenAssistant);
+    };
+  }, [sendMessage]);
+
+  async function handleSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!input.trim() || loading) return;
+
+    const currentInput = input;
     setInput('');
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: updatedMessages,
-        }),
-      });
-
-      let data: any = null;
-      try {
-        data = await response.json();
-      } catch {
-        // در صورتی که سرور به جای JSON پاسخ HTML یا 404 برگرداند
-        data = null;
-      }
-
-      if (!response.ok || !data?.reply) {
-        const errorText =
-          data?.error ||
-          (response.status === 404
-            ? 'مسیر سرویس در سرور یافت نشد (کد 404). لطفاً وضعیت استقرار در ورسل را بررسی کنید.'
-            : `خطای سرور (${response.status})`);
-        throw new Error(errorText);
-      }
-
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          role: 'assistant',
-          content: data.reply,
-        },
-      ]);
-    } catch (err: any) {
-      const displayMessage =
-        err?.message ||
-        'در ارتباط با دستیار ارگونو مشکلی پیش آمد. لطفاً کمی بعد دوباره تلاش کنید.';
-
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          role: 'assistant',
-          content: displayMessage,
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    await sendMessage(currentInput);
   }
 
   return (

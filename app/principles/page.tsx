@@ -5,7 +5,7 @@ import Image from "next/image";
 import { 
   Armchair, Monitor, Keyboard, UserCheck, Eye, Footprints, 
   Laptop, Sun, FileText, RefreshCw, Heart, AlertTriangle, 
-  X, Check, HelpCircle, ArrowLeft, Sparkles, Bot, RotateCcw
+  X, Check, HelpCircle, ArrowLeft, Sparkles, Bot, RotateCcw, MessageSquareQuote
 } from "lucide-react";
 
 type ResponseStatus = "yes" | "unsure" | "no";
@@ -21,25 +21,50 @@ interface PrincipleItem {
   encouragementMessage: string;  // پیام تشویقی «انجام دادم»
   motivationalMessage: string;   // پیام انگیزشی روان و کوتاه «انجام ندادم»
   assistantTip: string;          // پیشنهاد دستیار ارگونو برای «مطمئن نیستم»
+  assistantPrompt: string;       // سوال آماده برای دستیار هوشمند
 }
 
-const STORAGE_KEY = "ergono-assessment-answers";
-const EXPIRY_MS = 24 * 60 * 60 * 1000;
+const STORAGE_KEY = "ergono-assessment-daily-answers";
 
-function loadStoredAnswers(): Record<string, { status: ResponseStatus; ts: number }> {
+// دریافت کلید تاریخ روز جاری (برای ریست روزانه)
+function getTodayDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+interface StoredDataPayload {
+  date: string;
+  answers: Record<string, ResponseStatus>;
+}
+
+function loadStoredAnswers(): Record<string, ResponseStatus> {
+  if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    const data: Record<string, { status: ResponseStatus; ts: number }> = JSON.parse(raw);
-    const now = Date.now();
-    const valid: typeof data = {};
-    Object.entries(data).forEach(([k, v]) => {
-      if (now - v.ts < EXPIRY_MS) valid[k] = v;
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(valid));
-    return valid;
+    const parsed: StoredDataPayload = JSON.parse(raw);
+    const today = getTodayDateString();
+
+    // اگر تاریخ ذخیره شده مربوط به امروز نباشد، پاک و ریست شود
+    if (parsed.date !== today) {
+      localStorage.removeItem(STORAGE_KEY);
+      return {};
+    }
+    return parsed.answers || {};
   } catch {
     return {};
+  }
+}
+
+function saveAnswersToStorage(answers: Record<string, ResponseStatus>) {
+  try {
+    const payload: StoredDataPayload = {
+      date: getTodayDateString(),
+      answers,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.error("Storage save error:", err);
   }
 }
 
@@ -52,11 +77,10 @@ function playFeedbackAudio(type: FeedbackType) {
     const now = ctx.currentTime;
 
     if (type === "yes") {
-      // صدای موفقیت (شاد و صعودی)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = "sine";
-      osc1.frequency.setValueAtTime(523.25, now); // C5
+      osc1.frequency.setValueAtTime(523.25, now);
       gain1.gain.setValueAtTime(0.15, now);
       gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       osc1.connect(gain1);
@@ -67,7 +91,7 @@ function playFeedbackAudio(type: FeedbackType) {
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = "sine";
-      osc2.frequency.setValueAtTime(659.25, now + 0.1); // E5
+      osc2.frequency.setValueAtTime(659.25, now + 0.1);
       gain2.gain.setValueAtTime(0.2, now + 0.1);
       gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
       osc2.connect(gain2);
@@ -76,12 +100,11 @@ function playFeedbackAudio(type: FeedbackType) {
       osc2.stop(now + 0.5);
 
     } else if (type === "unsure") {
-      // صدای تفکر و بررسی (تن دوگانه ملایم)
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(440, now); // A4
-      osc.frequency.setValueAtTime(523.25, now + 0.12); // C5
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.setValueAtTime(523.25, now + 0.12);
       gain.gain.setValueAtTime(0.12, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
       osc.connect(gain);
@@ -90,12 +113,11 @@ function playFeedbackAudio(type: FeedbackType) {
       osc.stop(now + 0.4);
 
     } else if (type === "no") {
-      // صدای غیرفعال/انگیزشی (تن نزولی ملایم)
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(392, now); // G4
-      osc.frequency.exponentialRampToValueAtTime(261.63, now + 0.25); // C4
+      osc.frequency.setValueAtTime(392, now);
+      osc.frequency.exponentialRampToValueAtTime(261.63, now + 0.25);
       gain.gain.setValueAtTime(0.15, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
       osc.connect(gain);
@@ -110,11 +132,11 @@ function playFeedbackAudio(type: FeedbackType) {
 
 export default function Home() {
   const [selectedPrinciple, setSelectedPrinciple] = useState<PrincipleItem | null>(null);
-  const [storedAnswers, setStoredAnswers] = useState<Record<string, { status: ResponseStatus; ts: number }>>({});
+  const [userAnswers, setUserAnswers] = useState<Record<string, ResponseStatus>>({});
   const [activeFeedback, setActiveFeedback] = useState<FeedbackType | null>(null);
 
   useEffect(() => {
-    setStoredAnswers(loadStoredAnswers());
+    setUserAnswers(loadStoredAnswers());
   }, []);
 
   useEffect(() => {
@@ -130,6 +152,7 @@ export default function Home() {
       encouragementMessage: "عالیه! ستون فقرات و عضلات کمرت بابت این تنظیم راحت شدن.",
       motivationalMessage: "فقط ۱ دقیقه تنظیم ارتفاع صندلی، کمردرد کل روزت رو برطرف می‌کنه!",
       assistantTip: "اگر ارتفاع دقیق صندلی مناسب قدت رو نمی‌دونی، از دستیار ارگونو بپرس.",
+      assistantPrompt: "سلام، می‌خوام صندلی کارم رو بر اساس قدم و میز کار به شکل ارگونومیک تنظیم کنم. چطور مطمئن بشم عمق و ارتفاعش درسته؟",
       items: [
         "ارتفاع صندلی را طوری تنظیم کنید که پاها کاملاً روی زمین یا زیرپایی قرار بگیرند.",
         "کمرتان را به پشتی صندلی تکیه دهید تا قوس طبیعی کمر حمایت شود.",
@@ -144,6 +167,7 @@ export default function Home() {
       encouragementMessage: "آفرین! حالا گردنت در زاویه طبیعی قرار گرفته و فشاری روش نیست.",
       motivationalMessage: "با گذاشتن یک کتاب زیر مانیتور، همین الان گردنت رو از فشار نجات بده.",
       assistantTip: "نمی‌دونی بالای مانیتور باید کجای چشمت باشه؟ از دستیار ارگونو راهنمایی بگیر.",
+      assistantPrompt: "سلام، چطور ارتفاع صفحه‌نمایشم رو تنظیم کنم تا گردنم خم نشه و دچار آرتروز یا گردن‌درد نشم؟",
       items: [
         "مانیتور را مستقیم روبه‌روی خود و کمی پایین‌تر از سطح چشم قرار دهید.",
         "صفحه را در فاصله‌ای بگذارید که متن را بدون خم‌شدن به جلو به‌راحتی ببینید.",
@@ -158,6 +182,7 @@ export default function Home() {
       encouragementMessage: "فوق‌العاده است! رعایت فاصله یک بازو، خستگی چشم رو خیلی کم می‌کنه.",
       motivationalMessage: "مانیتور رو به اندازه طول دستت عقب ببر تا چشمهات کمتر خسته بشن.",
       assistantTip: "برای محاسبه دقیق فاصله مانیتور بر اساس سایز صفحه‌نمایشت، با دستیار ارگونو مشورت کن.",
+      assistantPrompt: "سلام، فاصله استاندارد چشم تا مانیتور چقدر باید باشه و چطور با سایز مانیتور تنظیمش کنم؟",
       items: [
         "فاصله مانیتور تا چشم حدود فاصله یک بازو باشد (۵۰ تا ۷۰ سانتی‌متر).",
         "اگر به صفحه نزدیک می‌شوید یا سر را جلو می‌دهید، فاصله را بیشتر کنید.",
@@ -172,6 +197,7 @@ export default function Home() {
       encouragementMessage: "احسنت! زاویه ۹۰ درجه آرنج، سلامت مچ دستت رو تضمین می‌کنه.",
       motivationalMessage: "کیبورد رو کمی نزدیک‌تر بیار تا مچ دستت صاف بمونه و درد نگیره.",
       assistantTip: "اگر مچت موقع تایپ گزگز می‌کنه، وضعیتت رو به دستیار ارگونو بگو تا راهنماییت کنه.",
+      assistantPrompt: "سلام، هنگام تایپ و کار با ماوس مچ دستم اذیت میشه. چطور زاویه آرنج و مچ رو در زاویه خنثی نگه دارم؟",
       items: [
         "کیبورد و ماوس را نزدیک بدن و در دسترس قرار دهید.",
         "آرنج‌ها حدود ۹۰ درجه و نزدیک بدن بمانند.",
@@ -186,6 +212,7 @@ export default function Home() {
       encouragementMessage: "بسیار عالی! زاویه مناسب زانو، خون‌رسانی پاها رو عالی نگه می‌داره.",
       motivationalMessage: "کمی صاف‌تر بشین و پاهات رو کاملاً روی زمین بگذار؛ تفاوتش رو حس می‌کنی.",
       assistantTip: "می‌تونی چک‌لیست سریع وضعیت صحیح نشستن رو از دستیار ارگونو بگیری.",
+      assistantPrompt: "سلام، وضعیت استاندارد پاها و زانوها روی صندلی اداری چطور باید باشه؟ آیا نیاز به زیرپایی دارم؟",
       items: [
         "سر و گردن را در راستای تنه نگه دارید.",
         "زانو حدود ۹۰ درجه و هم‌سطح یا کمی پایین‌تر از لگن قرار بگیرد.",
@@ -200,6 +227,7 @@ export default function Home() {
       encouragementMessage: "ماشاالله! قانون ۲۰-۲۰-۲۰ شادابی چشمانت رو در طول روز حفظ می‌کنه.",
       motivationalMessage: "همین الان ۲۰ ثانیه به دوردست نگاه کن تا چشمهات استراحت کنن.",
       assistantTip: "دستیار ارگونو می‌تونه روش‌های جلوگیری از خشکی چشم پشت مانیتور رو بهت بگه.",
+      assistantPrompt: "سلام، چشم‌هام پشت مانیتور خشک و خسته میشن. قانون ۲۰-۲۰-۲۰ و راهکارهای ارگونومی محافظت از چشم چیه؟",
       items: [
         "هر ۲۰ دقیقه، ۲۰ ثانیه به نقطه‌ای در فاصله حدود ۶ متری نگاه کنید.",
         "هنگام کار با صفحه‌نمایش، مرتب پلک بزنید تا خشکی چشم کمتر شود.",
@@ -214,6 +242,7 @@ export default function Home() {
       encouragementMessage: "خیلی خوبه! با خلوت کردن زیر میز، پاهایت آزادانه حرکت می‌کنند.",
       motivationalMessage: "وسایل اضافه زیر میز رو بردار تا پاهات جا برای دراز شدن داشته باشن.",
       assistantTip: "برای انتخاب زیرپایی ارگونومیک مناسب، از دستیار ارگونو سوال کن.",
+      assistantPrompt: "سلام، فضای زیر میزم کمه و نمی‌دونم چطور به درستی زیرپایی تهیه کنم یا پاهام رو آزادانه قرار بدم.",
       items: [
         "آیا فضای کافی زیر میز برای دراز کردن یا حرکت دادن پاهایتان دارید؟",
         "زیر میز کار نباید به عنوان انبار وسایل یا جعبه‌ها استفاده شود.",
@@ -230,6 +259,7 @@ export default function Home() {
       encouragementMessage: "کارت حرف نداره! با بالا آوردن لپ‌تاپ، گردنت دیگر قوز نمی‌کنه.",
       motivationalMessage: "لپ‌تاپ رو روی چند تا کتاب بگذار تا مجبور نباشی گردنت رو خم کنی.",
       assistantTip: "طریقه ست کردن کیبورد و پایه لپ‌تاپ رو از دستیار ارگونو بپرس.",
+      assistantPrompt: "سلام، من فقط با لپ‌تاپ کار می‌کنم و گردن‌درد می‌گیرم. چیدمان اصولی ارگونومی برای لپ‌تاپ چطور است؟",
       items: [
         "برای کار طولانی، صفحه لپ‌تاپ را بالاتر و روبه‌روی چشم قرار دهید.",
         "اگر لپ‌تاپ را بالا می‌برید، از کیبورد و ماوس جداگانه استفاده کنید.",
@@ -244,6 +274,7 @@ export default function Home() {
       encouragementMessage: "درود! تنظیم درست نور مانع بازتاب چشم‌نواز و سردرد می‌شه.",
       motivationalMessage: "زاویه مانیتور رو طوری بچرخون که نور پنجره یا چراغ روی صفحه نیفته.",
       assistantTip: "چگونگی تنظیم نور محیط کار برای کاهش خستگی چشم رو از ارگونو بپرس.",
+      assistantPrompt: "سلام، نور اتاق کارم روی مانیتور بازتاب می‌کنه یا چشمم خسته میشه. اصول ارگونومی نور چیه؟",
       items: [
         "بهتر است مانیتور را موازی با پنجره قرار دهید.",
         "نور محیط باید کافی باشد، اما خیرگی و بازتاب مستقیم ایجاد نکند.",
@@ -259,6 +290,7 @@ export default function Home() {
       encouragementMessage: "عالی چیدی! وسایل پرکاربرد در دسترست هستن و چرخش گردن کم شده.",
       motivationalMessage: "وسایل پرکاربردت رو نزدیک‌تر بگذار تا مدام مجبور به چرخش نشی.",
       assistantTip: "بهترین چیدمان ارگونومیک وسایل روی میز رو از دستیار ارگونو بخواه.",
+      assistantPrompt: "سلام، چطور وسایل روی میزم رو بچینم تا مجبور نباشم مکرراً برای برداشتن وسایل یا اسناد کشش غیرعادی بدم؟",
       items: [
         "وسایلی که بیشتر استفاده می‌کنید را نزدیک و در دسترس بگذارید.",
         "اسناد را در ارتفاعی نزدیک به صفحه‌نمایش قرار دهید.",
@@ -273,6 +305,7 @@ export default function Home() {
       encouragementMessage: "ایول! همین کشش‌های چندثانیه‌ای، خستگی چندساعته رو درمی‌آره.",
       motivationalMessage: "همین حالا دستات رو بالای سر ببر و یک کشش ساده ۱۰ ثانیه‌ای بده.",
       assistantTip: "روتین تمرینات کششی ۲ دقیقه‌ای پشت میز رو از دستیار ارگونو بگیر.",
+      assistantPrompt: "سلام، چند تمرین کششی ساده و سریع پشت میز بهم یاد بده که خستگی بدنم کمتر بشه.",
       items: [
         "در وقفه‌های کوتاه، گردن، شانه‌ها، دست‌ها و پاها را حرکت دهید.",
         "چند حرکت کششی ساده را آرام و بدون ایجاد درد انجام دهید.",
@@ -288,6 +321,7 @@ export default function Home() {
       encouragementMessage: "آفرین! با کج نکردن گردن موقع مکالمه، از گرفتگی عضلات جلوگیری کردی.",
       motivationalMessage: "گوشی تلفن رو بین گردن و شونه کج نکن؛ با دست بگیریدش یا هندزفری بزن.",
       assistantTip: "اگر مکالمات تلفنی طولانی داری، راهکارهای دستیار ارگونو رو ببین.",
+      assistantPrompt: "سلام، مکالمات تلفنی طولانی دارم و گردنم اذیت میشه. بهترین روش ارگونومی چیه؟",
       items: [
         "گوشی را بین سر و شانه قرار ندهید؛ این کار به گردن شما آسیب می‌زند.",
         "گوشی تلفن را با دست نگه داشته و بعد از چند دقیقه جای دست‌ها را عوض کنید.",
@@ -302,6 +336,7 @@ export default function Home() {
       encouragementMessage: "دقیقاً! بهترین پوزیشن بدن، تغییر دادن مداوم حالت نشستنه.",
       motivationalMessage: "یک لحظه از جات بلند شو، چند قدم راه برو و دوباره بنشین.",
       assistantTip: "زمان‌بندی استاندارد نشستن و ایستادن رو از دستیار ارگونو بپرس.",
+      assistantPrompt: "سلام، هر چند وقت یک‌بار باید حالتم رو پشت میز عوض کنم یا بلند بشم قدم بزنم؟",
       items: [
         "حتی در یک وضعیت مناسب، ساعت‌ها ثابت نمانید.",
         "هر چند وقت یک‌بار وضعیت نشستن، ایستادن یا محل فعالیت خود را تغییر دهید.",
@@ -316,6 +351,7 @@ export default function Home() {
       encouragementMessage: "تبریک بابت هوشیاری بدنت! توجه به‌موقع به درد، بهترین پیشگیریه.",
       motivationalMessage: "اگر گردن یا مچت درد می‌کنه، نادیده‌اش نگیر؛ ۵ دقیقه به خودت استراحت بده.",
       assistantTip: "علائم گرفتگی عضلاتت رو به دستیار ارگونو بگو تا تحلیلش کنه.",
+      assistantPrompt: "سلام، من حین کار احساس درد یا گزگز در مچ/گردن دارم. این علائم نشانه چیه و چه کار باید بکنم؟",
       items: [
         "درد مداوم در گردن، شانه، کمر، مچ یا دست‌ها را نادیده نگیرید.",
         "بی‌حسی، گزگز یا ضعف دست‌ها نیاز به توجه و استراحت دارد.",
@@ -324,15 +360,23 @@ export default function Home() {
     }
   ];
 
-  const handleSelectAnswer = (principleId: string, status: ResponseStatus) => {
-    const newEntry = { [principleId]: { status, ts: Date.now() } };
-    setStoredAnswers((prev) => {
-      const updated = { ...prev, ...newEntry };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+  // باز کردن چت‌بات ارگونو و ارسال پیام مستقیم
+  const handleOpenErgoAssistant = (promptText?: string) => {
+    const defaultText = promptText || "سلام، در ارزیابی اصول ارگونومی نیاز به راهنمایی دارم.";
+    window.dispatchEvent(
+      new CustomEvent("open-ergo-assistant", {
+        detail: { prompt: defaultText }
+      })
+    );
+    // بستن مودال فعلی تا صفحه چت‌بات در اولویت قرار گیرد
+    setSelectedPrinciple(null);
+  };
 
-    // پخش صدای مخصوص همان دکمه
+  const handleSelectAnswer = (principleId: string, status: ResponseStatus) => {
+    const updated = { ...userAnswers, [principleId]: status };
+    setUserAnswers(updated);
+    saveAnswersToStorage(updated);
+
     playFeedbackAudio(status);
     setActiveFeedback(status as FeedbackType);
   };
@@ -351,20 +395,20 @@ export default function Home() {
     }
   };
 
-  const userAnswers: Record<string, ResponseStatus> = Object.fromEntries(
-    Object.entries(storedAnswers).map(([k, v]) => [k, v.status])
-  );
-
   return (
     <div className="min-h-screen bg-[#eaf4f4] font-[Vazirmatn] text-[#1e293b]" dir="rtl">
 
       <section id="principles" className="py-16 px-6 max-w-6xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-14">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full mb-3">
+            <span>ارزیابی روزانه وضعیت میز کار</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+          </div>
           <h2 className="text-3xl md:text-4xl font-extrabold text-[#0f4c5c] mb-4">
             اصول ارگونومی محیط کار
           </h2>
           <p className="text-lg text-slate-600">
-            روی هر اصل کلیک کنید تا تصویر و توضیحات آن را ببینید و وضعیت میز کار خود را ارزیابی کنید.
+            روی هر اصل کلیک کنید تا تصویر و توضیحات آن را ببینید و وضعیت روزانه میز کار خود را ارزیابی کنید.
           </p>
         </div>
 
@@ -402,7 +446,7 @@ export default function Home() {
                   )}
                   {userAnswers[principle.id] === "unsure" && (
                     <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <HelpCircle className="w-3.5 h-3.5 text-amber-600" /> بررسی
+                      <HelpCircle className="w-3.5 h-3.5 text-amber-600" /> بررسی با دستیار
                     </span>
                   )}
                   {userAnswers[principle.id] === "no" && (
@@ -422,7 +466,7 @@ export default function Home() {
                 </ul>
 
                 <div className="mt-3 flex items-center justify-between text-xs text-[#0f4c5c] font-semibold opacity-70 group-hover:opacity-100 transition-opacity">
-                  <span>مشاهده کامل و ارزیابی</span>
+                  <span>مشاهده کامل و ارزیابی امروز</span>
                   <span>←</span>
                 </div>
               </div>
@@ -431,7 +475,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* مودال */}
+      {/* مودال ارزیابی و جزئیات */}
       {selectedPrinciple && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-md"
@@ -515,11 +559,16 @@ export default function Home() {
               ))}
             </ul>
 
-            {/* بخش پاسخ‌ها */}
+            {/* بخش پاسخ‌ها و بازخورد روزانه */}
             <div className="mt-6 pt-5 border-t border-slate-100">
-              <p className="text-sm font-bold text-center text-[#0f4c5c] mb-4">
-                وضعیت این اصل در میز کار شما چگونه است؟
-              </p>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <p className="text-sm font-bold text-[#0f4c5c]">
+                  وضعیت این اصل در میز کار امروز شما چگونه است؟
+                </p>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  (ذخیره فقط برای امروز)
+                </span>
+              </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <button
@@ -570,7 +619,7 @@ export default function Home() {
                     <span>{selectedPrinciple.encouragementMessage}</span>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-600 mb-4">
-                    ثبت شد! آماده‌ای وضعیت اصل بعدی را هم چک کنی؟
+                    برای امروز ثبت شد! آماده‌ای وضعیت اصل بعدی را هم چک کنی؟
                   </p>
 
                   <button
@@ -592,7 +641,7 @@ export default function Home() {
                     <span>{selectedPrinciple.motivationalMessage}</span>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-600 mb-4">
-                    ثبت شد. هروقت اصلاحش کردی می‌تونی بیای و تغییرش بدی!
+                    برای امروز ثبت شد. هروقت اصلاحش کردی می‌تونی دوباره تغییریش بدی!
                   </p>
 
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -615,29 +664,41 @@ export default function Home() {
                 </div>
               )}
 
-              {/* حالت راهنمایی: «مطمئن نیستم» */}
+              {/* حالت راهنمایی و اتصال به هوش مصنوعی: «مطمئن نیستم» */}
               {activeFeedback === "unsure" && (
-                <div className="mt-5 p-4 rounded-2xl bg-gradient-to-r from-amber-50 via-[#eaf4f4] to-amber-50 border border-amber-200/60 text-center animate-in fade-in zoom-in-95 duration-300">
-                  <div className="flex items-center justify-center gap-2 text-[#0f4c5c] font-black text-base sm:text-lg mb-1">
-                    <Bot className="w-5 h-5 text-amber-500 shrink-0" />
+                <div className="mt-5 p-4 rounded-2xl bg-gradient-to-r from-amber-50 via-amber-100/40 to-amber-50 border border-amber-300/80 text-center animate-in fade-in zoom-in-95 duration-300">
+                  <div className="flex items-center justify-center gap-2 text-amber-900 font-black text-base sm:text-lg mb-1">
+                    <Bot className="w-5 h-5 text-amber-600 shrink-0" />
                     <span>{selectedPrinciple.assistantTip}</span>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-600 mb-4">
-                    می‌تونی جزئیات محیط کارت رو با دستیار هوشمند ارگونو چک کنی.
+                    برای تنظیم دقیق و مشاوره متناسب با بدنت، روی دکمه زیر بزن تا دستیار ارگونو باز بشه:
                   </p>
+
+                  {/* دکمه برجسته اتصال مستقیم به دستیار ارگونو */}
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenErgoAssistant(selectedPrinciple.assistantPrompt)}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-600 to-[#0f4c5c] hover:from-emerald-700 hover:to-[#0b3844] text-white font-extrabold px-6 py-3 rounded-xl shadow-lg shadow-emerald-700/20 active:scale-95 transition-all text-sm"
+                    >
+                      <MessageSquareQuote className="w-4 h-4 text-emerald-200" />
+                      <span>پرسش فوری از دستیار ارگونو</span>
+                    </button>
+                  </div>
 
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       type="button"
                       onClick={() => setSelectedPrinciple(null)}
-                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs sm:text-sm font-bold transition-colors"
+                      className="w-full sm:w-auto px-5 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs sm:text-sm font-bold transition-colors"
                     >
                       بستن
                     </button>
                     <button
                       type="button"
                       onClick={handleGoToNextPrinciple}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#0f4c5c] text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold hover:bg-opacity-90 shadow-md transition-all"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-slate-700 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-800 transition-all"
                     >
                       <span>{hasNextPrinciple ? "رفتن به اصل بعدی" : "پایان اصول"}</span>
                       <ArrowLeft className="w-4 h-4" />
