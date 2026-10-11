@@ -14,6 +14,7 @@ const links = [
   { href: "/training", label: "برنامه آموزشی من" },
   { href: "/checklist", label: "چک‌لیست روزانه" },
   { href: "/progress", label: "پیشرفت من" },
+  { href: "/rewards", label: "افتخارات و نشان‌ها 🏆" },
 ];
 
 export default function Navbar() {
@@ -46,9 +47,9 @@ export default function Navbar() {
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between md:grid md:grid-cols-3">
+      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between md:grid md:grid-cols-[auto_1fr_auto] gap-4">
         {/* لوگو — راست */}
-        <div className="flex items-center gap-3 md:justify-self-start">
+        <div className="flex items-center gap-3 shrink-0">
           <Link href="/" className="flex items-center gap-2">
             <span className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-200 flex items-center justify-center">
               <svg
@@ -74,8 +75,8 @@ export default function Navbar() {
         </div>
 
         {/* منو در لپ‌تاپ و تبلت — وسط */}
-        <nav className="hidden md:block md:justify-self-center">
-          <ul className="flex items-center gap-2 lg:gap-3">
+        <nav className="hidden md:flex justify-center overflow-x-auto py-1">
+          <ul className="flex items-center gap-1.5 lg:gap-2.5">
             {links.map((link) => {
               const isActive =
                 link.href === "/"
@@ -86,7 +87,7 @@ export default function Navbar() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className={`block px-3 py-1.5 rounded-lg text-sm lg:text-base font-bold whitespace-nowrap transition-colors ${
+                    className={`block px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-bold whitespace-nowrap transition-colors ${
                       isActive
                         ? "bg-teal-50 text-teal-700 ring-1 ring-teal-200"
                         : "text-gray-700 hover:text-teal-700"
@@ -101,7 +102,7 @@ export default function Navbar() {
         </nav>
 
         {/* ورود/خروج + دکمه همبرگری موبایل — چپ */}
-        <div className="flex items-center gap-2 md:justify-self-end">
+        <div className="flex items-center gap-2 shrink-0">
           {session ? (
             <button
               onClick={handleLogout}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { Bell, Send, Check, X, Volume2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface NotificationMsg {
   title: string;
@@ -16,7 +17,7 @@ interface FixedNotification {
 }
 
 const notificationMessages: NotificationMsg[] = [
-  { title: "زمان استراحت! 🧘‍♂️", body: "بدنت رو بکش و چند نفس عمیق بکش." },
+  { title: "زمان استراحت! 🧘‍♂️", body: "یه کشش به بدنت بده و چند تا نفس عمیق بکش." },
   { title: "حواست به گردنت هست؟ 👀", body: "مانیتور رو هم‌سطح چشم تنظیم کن." },
   { title: "قانون ۲۰-۲۰-۲۰ 👁️", body: "برای ۲۰ ثانیه به فاصله دور از میز کارت نگاه کن." },
   { title: "وضعیت نشستن 🪑", body: "صاف بنشین! ستون فقراتت ازت ممنون میشه." },
@@ -99,14 +100,24 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
     }
   };
 
-  // بارگذاری تنظیمات و همگام‌سازی بلادرنگ بین تمام بخش‌ها
+  // بارگذاری تنظیمات از دیتابیس Supabase و LocalStorage
   useEffect(() => {
+    let currentEnabled = true;
+    let currentInterval = 1;
+
+    // ۱. ابتدا خواندن سریع از LocalStorage برای جلوگیری از پرش تصویر
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (typeof parsed.enabled === "boolean") setEnabled(parsed.enabled);
-        if (parsed.intervalTime) setIntervalTime(Number(parsed.intervalTime));
+        if (typeof parsed.enabled === "boolean") {
+          currentEnabled = parsed.enabled;
+          setEnabled(parsed.enabled);
+        }
+        if (parsed.intervalTime) {
+          currentInterval = Number(parsed.intervalTime);
+          setIntervalTime(Number(parsed.intervalTime));
+        }
       }
     } catch (e) {
       console.error("LocalStorage load error:", e);
@@ -114,6 +125,47 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
       setIsLoaded(true);
     }
 
+    // ۲. دریافت تنظیمات از Supabase در صورت ورود کاربر
+    const fetchFromSupabase = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from("user_settings")
+          .select("reminder_enabled, reminder_interval")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.warn("Supabase load error:", error.message);
+          return;
+        }
+
+        if (data) {
+          if (typeof data.reminder_enabled === "boolean") {
+            setEnabled(data.reminder_enabled);
+            currentEnabled = data.reminder_enabled;
+          }
+          if (data.reminder_interval) {
+            const intVal = Number(data.reminder_interval);
+            setIntervalTime(intVal);
+            currentInterval = intVal;
+          }
+          // هماهنگ‌سازی LocalStorage با آخرین دیتای Supabase
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({ enabled: currentEnabled, intervalTime: currentInterval })
+          );
+        }
+      } catch (err) {
+        console.error("Supabase sync fetch error:", err);
+      }
+    };
+
+    fetchFromSupabase();
+
+    // همگام‌سازی بلادرنگ بین تب‌های مرورگر یا کامپوننت‌های هم‌زمان
     const handleSync = (e: Event) => {
       let data: { enabled?: boolean; intervalTime?: number } | null = null;
       if ("detail" in e && (e as CustomEvent).detail) {
@@ -141,13 +193,31 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
     };
   }, []);
 
-  const saveAndBroadcastSettings = (newEnabled: boolean, newInterval: number) => {
+  // ذخیره در LocalStorage، تب‌های دیگر و دیتابیس Supabase
+  const saveAndBroadcastSettings = async (newEnabled: boolean, newInterval: number) => {
     try {
       const payload = { enabled: newEnabled, intervalTime: newInterval };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       window.dispatchEvent(new CustomEvent(SYNC_EVENT_KEY, { detail: payload }));
+
+      // ذخیره ابری در دیتابیس Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase.from("user_settings").upsert(
+          {
+            user_id: user.id,
+            reminder_enabled: newEnabled,
+            reminder_interval: newInterval,
+          },
+          { onConflict: "user_id" }
+        );
+
+        if (error) {
+          console.error("خطا در ذخیره تنظیمات روی Supabase:", error.message);
+        }
+      }
     } catch (e) {
-      console.error("LocalStorage save error:", e);
+      console.error("LocalStorage/Supabase save error:", e);
     }
   };
 
@@ -214,7 +284,6 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
   // در صفحه اصلی نسخه عمومی لایوت را مخفی می‌کنیم تا فقط نسخه وسط صفحه اصلی دیده شود
   const shouldHide = currentVariant === "floating" && isHomePage;
 
-  // کلاس‌های استایل: در صفحات دیگر به جای شناور بودن (fixed)، در انتهای صفحه و ثابت (static/mt-auto) قرار می‌گیرد
   const containerClasses =
     currentVariant === "floating"
       ? "w-full max-w-5xl mx-auto px-4 mt-auto pt-6 pb-8"
