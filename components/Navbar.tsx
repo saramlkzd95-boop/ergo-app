@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
-import { LogIn, LogOut, Menu, X } from "lucide-react";
+import { LogIn, LogOut, Menu, X, ShieldCheck } from "lucide-react";
 
 const links = [
   { href: "/", label: "خانه" },
@@ -21,16 +21,42 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<Session | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // بررسی وضعیت ادمین بودن بر اساس ایمیل کاربر در جدول admin_users
+  const checkIfAdmin = async (userEmail?: string | null) => {
+    if (!userEmail) {
+      setIsAdmin(false);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("admin_users")
+        .select("email")
+        .eq("email", userEmail)
+        .maybeSingle();
+
+      if (!error && data) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    } catch {
+      setIsAdmin(false);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      checkIfAdmin(data.session?.user?.email);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
         setSession(newSession);
+        checkIfAdmin(newSession?.user?.email);
       }
     );
 
@@ -41,9 +67,12 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setIsAdmin(false);
     setMobileMenuOpen(false);
     router.push("/login");
   };
+
+  const isAdminActive = pathname.startsWith("/admin");
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
@@ -76,7 +105,7 @@ export default function Navbar() {
 
         {/* منو در لپ‌تاپ و تبلت — وسط */}
         <nav className="hidden md:flex justify-center overflow-x-auto py-1">
-          <ul className="flex items-center gap-1.5 lg:gap-2.5">
+          <ul className="flex items-center gap-1.5 lg:gap-2">
             {links.map((link) => {
               const isActive =
                 link.href === "/"
@@ -98,6 +127,23 @@ export default function Navbar() {
                 </li>
               );
             })}
+
+            {/* دکمه اختصاصی پنل مدیریت (فقط برای ادمین) */}
+            {isAdmin && (
+              <li>
+                <Link
+                  href="/admin"
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-extrabold whitespace-nowrap transition-all ${
+                    isAdminActive
+                      ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300"
+                      : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/80"
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                  <span>پنل مدیریت</span>
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
 
@@ -163,6 +209,24 @@ export default function Navbar() {
                 </li>
               );
             })}
+
+            {/* دکمه پنل مدیریت در منوی موبایل */}
+            {isAdmin && (
+              <li>
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold transition-colors ${
+                    isAdminActive
+                      ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300"
+                      : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/80"
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  <span>پنل مدیریت</span>
+                </Link>
+              </li>
+            )}
           </ul>
 
           <div className="pt-3 border-t border-gray-100">
