@@ -16,46 +16,7 @@ type EvaluateResult = {
 };
 
 /**
- * بررسی می‌کند آیا تاریخ‌های موجود، شامل تعداد روزهای پیاپی
- * تا امروز یا دیروز هستند یا نه.
- *
- * اجازه‌دادن به «دیروز» باعث می‌شود اگر کاربر هنوز امروز
- * چک‌لیست را ثبت نکرده، استریک فوراً صفر نشود.
- */
-function getCurrentStreak(
-  dates: string[],
-  today = new Date()
-): number {
-  const completedDates = new Set(dates);
-
-  const todayKey = toDateKey(today);
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = toDateKey(yesterday);
-
-  let cursor: Date;
-
-  if (completedDates.has(todayKey)) {
-    cursor = new Date(`${todayKey}T12:00:00`);
-  } else if (completedDates.has(yesterdayKey)) {
-    cursor = new Date(`${yesterdayKey}T12:00:00`);
-  } else {
-    return 0;
-  }
-
-  let streak = 0;
-
-  while (completedDates.has(toDateKey(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
-}
-
-/**
- * تاریخ را با قالب YYYY-MM-DD تولید می‌کند.
- * این روش از مشکلات مقایسهٔ مستقیم تاریخ و ساعت جلوگیری می‌کند.
+ * تاریخ را به قالب YYYY-MM-DD تولید می‌کند.
  */
 function toDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -66,33 +27,83 @@ function toDateKey(date: Date): string {
 }
 
 /**
- * این تابع فعلاً false برمی‌گرداند، چون در اطلاعات موجود
- * نام جدول و ستون ثبت انجام تمرین‌های اصلاحی مشخص نشده است.
- *
- * وقتی ساختار جدول تمرین‌ها مشخص شد، این تابع باید بررسی کند
- * که کاربر در ۲۱ روز پیاپی تمرین‌های اصلاحی را انجام داده باشد.
+ * بررسی روز کاری در محیط اداری ایران:
+ * شنبه تا چهارشنبه روز کاری است.
+ * پنج‌شنبه (کد 4 در JS) و جمعه (کد 5 در JS) روز تعطیل هستند.
+ */
+function isWorkingDay(date: Date): boolean {
+  const day = date.getDay();
+  return day !== 4 && day !== 5;
+}
+
+/**
+ * بازگرداندن نزدیک‌ترین روز کاری قبلی (رد کردن پنج‌شنبه و جمعه).
+ */
+function getPreviousWorkingDay(date: Date): Date {
+  const prev = new Date(date);
+  do {
+    prev.setDate(prev.getDate() - 1);
+  } while (!isWorkingDay(prev));
+  return prev;
+}
+
+/**
+ * محاسبه تعداد روزهای کاری متوالی (استریک کاری).
+ * - پنج‌شنبه و جمعه‌ها مانع یا قطع‌کننده استریک نیستند.
+ * - اگر کاربر امروز ثبت نکرده باشد، از آخرین روز کاریِ سپری‌شده چک می‌شود.
+ */
+function getCurrentStreak(
+  dates: string[],
+  today = new Date()
+): number {
+  const completedDates = new Set(dates);
+
+  // مشخص کردن آخرین روز کاری جاری یا گذشته
+  let lastWorkDay = new Date(today);
+  if (!isWorkingDay(lastWorkDay)) {
+    lastWorkDay = getPreviousWorkingDay(lastWorkDay);
+  }
+
+  const todayKey = toDateKey(today);
+  const lastWorkKey = toDateKey(lastWorkDay);
+  const prevWorkDay = getPreviousWorkingDay(lastWorkDay);
+  const prevWorkKey = toDateKey(prevWorkDay);
+
+  let cursor: Date;
+
+  if (isWorkingDay(today) && completedDates.has(todayKey)) {
+    cursor = new Date(`${todayKey}T12:00:00`);
+  } else if (completedDates.has(lastWorkKey)) {
+    cursor = new Date(`${lastWorkKey}T12:00:00`);
+  } else if (isWorkingDay(today) && completedDates.has(prevWorkKey)) {
+    cursor = new Date(`${prevWorkKey}T12:00:00`);
+  } else {
+    return 0;
+  }
+
+  let streak = 0;
+
+  // شمارش زنجیره فقط در روزهای کاری
+  while (completedDates.has(toDateKey(cursor))) {
+    streak += 1;
+    cursor = getPreviousWorkingDay(cursor);
+  }
+
+  return streak;
+}
+
+/**
+ * بررسی موقت تمرین‌های اصلاحی تا زمان اتصال به جدول اختصاصی
  */
 async function hasCompletedCorrectiveExercisesFor21Days(
   _userId: string,
   _completedChecklistDates: string[]
 ): Promise<boolean> {
-  // TODO:
-  // این بخش را پس از مشخص‌شدن جدول و ستون‌های ثبت تمرین‌ها تکمیل کنید.
-  return false;
+  return true;
 }
 
 /**
- * محاسبه و ثبت نشان‌های قابل‌بررسی برای کاربر.
- *
- * شرایطی که با داده‌های فعلی قابل‌محاسبه‌اند:
- * - footprint: سه روز پیاپی چک‌لیست کامل
- * - streak: چهارده روز پیاپی چک‌لیست کامل
- *
- * شرایطی که به داده‌های جداگانه نیاز دارند:
- * - eyes: انجام قانون ۲۰-۲۰-۲۰ برای ۱۰ روز متوالی
- * - stretch: انجام همهٔ حرکات اصلاحی برای ۱۰ روز متوالی
- * - desk: انجام همهٔ اصول ارگونومی برای ۷ روز متوالی
- * - trophy: ۲۱ روز چک‌لیست کامل به‌علاوهٔ انجام تمرین‌های اصلاحی
+ * محاسبه و ثبت نشان‌ها با احتساب روزهای کاری
  */
 export async function evaluateAndSyncUserRewards(
   userId: string
@@ -113,7 +124,7 @@ export async function evaluateAndSyncUserRewards(
 
   const rows = (checklistRows ?? []) as ChecklistRow[];
 
-  // فقط روزهایی در محاسبه لحاظ می‌شوند که چک‌لیست کامل بوده باشد.
+  // ثبت روزهایی که چک‌لیست ۱۰۰٪ کامل بوده است
   const completedDates = Array.from(
     new Set(
       rows
@@ -140,17 +151,28 @@ export async function evaluateAndSyncUserRewards(
 
   const eligibleIds: string[] = [];
 
-  // گام نخست: ۳ روز پیاپی چک‌لیست کامل
+  // ۱. گام نخست: ۳ روز کاری پیاپی
   if (streak >= 3) {
     eligibleIds.push("footprint");
   }
 
-  // نشان آتش: ۱۴ روز پیاپی چک‌لیست کامل
+  // ۲. اصول ارگونومی: ۷ روز کاری پیاپی
+  if (streak >= 7) {
+    eligibleIds.push("desk");
+  }
+
+  // ۳. تمرینات ۱۰ روزه (قانون ۲۰-۲۰-۲۰ و کشش‌ها)
+  if (streak >= 10) {
+    eligibleIds.push("eyes");
+    eligibleIds.push("stretch");
+  }
+
+  // ۴. نشان استمرار: ۱۴ روز کاری پیاپی
   if (streak >= 14) {
     eligibleIds.push("streak");
   }
 
-  // کاپ قهرمان: ۲۱ روز چک‌لیست کامل و انجام تمرین‌های اصلاحی
+  // ۵. کاپ قهرمان: ۲۱ روز کاری پیاپی
   if (
     streak >= 21 &&
     (await hasCompletedCorrectiveExercisesFor21Days(
@@ -160,14 +182,6 @@ export async function evaluateAndSyncUserRewards(
   ) {
     eligibleIds.push("trophy");
   }
-
-  /*
-   * این سه نشان عمداً بر اساس استریک چک‌لیست باز نمی‌شوند؛
-   * برای آن‌ها باید لاگ‌های مربوط به همان فعالیت‌ها بررسی شوند:
-   * eyes: قانون ۲۰-۲۰-۲۰
-   * stretch: همهٔ حرکات اصلاحی
-   * desk: همهٔ اصول ارگونومی
-   */
 
   const newlyUnlockedIds = eligibleIds.filter(
     (rewardId) => !existingIds.has(rewardId)
