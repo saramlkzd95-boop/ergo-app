@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Award, ArrowRight, Lock, CheckCircle2, Trophy, Flame, X, Sparkles, Loader2 } from "lucide-react";
@@ -16,6 +16,57 @@ export default function RewardsPage() {
   
   // نگهداری آیدی کارتی که موس روی آن است برای اعمال افکت تار شدن و پیام انگیزشی
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // افکت صوتی پیروزی و اهدای نشان با Web Audio API
+  const playRewardCelebrationSound = () => {
+    try {
+      if (typeof window === "undefined") return;
+
+      if (!audioCtxRef.current) {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioCtxRef.current = new AudioCtx();
+      }
+
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      const now = ctx.currentTime;
+
+      // توالی نوت‌های صعودی و دلنشین پیروزی (C5, E5, G5, C6)
+      const notes = [
+        { freq: 523.25, time: 0, duration: 0.15 },
+        { freq: 659.25, time: 0.12, duration: 0.15 },
+        { freq: 783.99, time: 0.24, duration: 0.2 },
+        { freq: 1046.5, time: 0.4, duration: 0.55 },
+      ];
+
+      notes.forEach(({ freq, time, duration }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, now + time);
+
+        gain.gain.setValueAtTime(0.001, now + time);
+        gain.gain.exponentialRampToValueAtTime(0.28, now + time + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + time + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + time);
+        osc.stop(now + time + duration);
+      });
+    } catch (err) {
+      console.warn("Audio playback not supported or blocked:", err);
+    }
+  };
 
   useEffect(() => {
     async function syncRewards() {
@@ -33,13 +84,16 @@ export default function RewardsPage() {
         const { unlockedIds, newlyUnlockedIds } = await evaluateAndSyncUserRewards(user.id);
         setUnlockedBadges(unlockedIds);
 
-        // ۳. اگر نشان جدیدی همین لحظه باز شده، مودال تبریک نمایش داده شود
+        // ۳. اگر نشان جدیدی همین لحظه باز شده، مودال تبریک نمایش داده شده و صدا پخش شود
         if (newlyUnlockedIds.length > 0) {
           const newBadge = REWARDS.find(r => r.id === newlyUnlockedIds[0]);
-          if (newBadge) setCelebratingReward(newBadge);
+          if (newBadge) {
+            setCelebratingReward(newBadge);
+            playRewardCelebrationSound();
+          }
         }
 
-        // ۴. تعیین سطح بر اساس تعداد نشان‌ها (منطق: هر ۲ نشان ۱ لول بالا می‌رود)
+        // ۴. تعیین سطح بر اساس تعداد نشان‌ها (هر ۲ نشان ۱ لول بالا می‌رود)
         const count = unlockedIds.length;
         if (count >= 6) setCurrentLevel(4);
         else if (count >= 4) setCurrentLevel(3);
@@ -55,6 +109,11 @@ export default function RewardsPage() {
 
     syncRewards();
   }, []);
+
+  const handleBadgeClick = (reward: Reward) => {
+    setCelebratingReward(reward);
+    playRewardCelebrationSound();
+  };
 
   return (
     <div
@@ -181,7 +240,7 @@ export default function RewardsPage() {
                   key={reward.id}
                   onMouseEnter={() => setHoveredCardId(`reward-${reward.id}`)}
                   onMouseLeave={() => setHoveredCardId(null)}
-                  onClick={() => isUnlocked && setCelebratingReward(reward)}
+                  onClick={() => isUnlocked && handleBadgeClick(reward)}
                   className={`relative overflow-hidden flex items-start gap-3.5 p-4 rounded-2xl border transition-all duration-300 cursor-pointer min-h-[110px] ${
                     isUnlocked ? "bg-[#eef7f6] border-teal-300 shadow-xs hover:shadow-md" : "bg-white border-slate-200"
                   }`}
