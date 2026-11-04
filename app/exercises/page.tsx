@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { EXERCISES_DATA, Exercise } from "@/data/exercises";
 
-const EXERCISE_DURATION = 15;
+const DEFAULT_SIDE_DURATION = 15;
 const PROGRESS_KEY = "ergono-corrective-exercises-progress";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -65,7 +65,8 @@ const saveExerciseProgress = (progress: ExerciseProgress) => {
 
 export default function ExercisesPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(EXERCISE_DURATION);
+  const [currentSideIndex, setCurrentSideIndex] = useState(0); // 0 = راست, 1 = چپ
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_SIDE_DURATION);
   const [isRunning, setIsRunning] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
@@ -87,7 +88,58 @@ export default function ExercisesPage() {
   const totalExercises = EXERCISES_DATA.length;
   const completedCount = completedExercises.length;
 
-  // تابع پخش صدای موفقیت و تشویق (ترکیب فایل صوتی و Web Audio API برای تضمین ۱۰۰٪ پخش)
+  // آیا تمرین فعلی دوطرفه است؟
+  const isBilateral = Boolean(
+    currentExercise?.isBilateral &&
+      currentExercise?.sides &&
+      currentExercise.sides.length > 1
+  );
+
+  const totalSides = isBilateral ? currentExercise!.sides!.length : 1;
+  const currentSide = isBilateral
+    ? currentExercise!.sides![currentSideIndex]
+    : null;
+
+  // مدت زمان مرحله جاری (پیش‌فرض ۱۵ ثانیه)
+  const currentDuration = currentSide?.duration || DEFAULT_SIDE_DURATION;
+
+  // صدای تغییر سمت حرکت (چپ/راست) با استفاده از Web Audio API بدون نیاز به فایل خارجی
+  const playSideSwitchSound = useCallback(() => {
+    if (isMuted) return;
+    try {
+      const AudioContextClass =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      const ctx = new AudioContextClass();
+      const notes = [440, 659.25]; // A4, E5 (صدای نرم هشدار تغییر جهت)
+
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+
+        gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.12);
+        gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + idx * 0.12 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(
+          0.001,
+          ctx.currentTime + idx * 0.12 + 0.25
+        );
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(ctx.currentTime + idx * 0.12);
+        osc.stop(ctx.currentTime + idx * 0.12 + 0.26);
+      });
+    } catch {
+      // نادیده گرفتن خطا
+    }
+  }, [isMuted]);
+
+  // تابع پخش صدای موفقیت و تشویق نهایی
   const playCelebrationSound = useCallback(() => {
     if (isMuted) return;
 
@@ -98,11 +150,9 @@ export default function ExercisesPage() {
 
       if (playPromise !== undefined) {
         playPromise.catch(() => {
-          // در صورت عدم دسترسی به فایل صوتی، ایجاد ملودی زنگ موفقیت با Web Audio API
           const AudioContextClass =
-            window.AudioContext ||
-            (window as unknown as { webkitAudioContext: typeof AudioContext })
-              .webkitAudioContext;
+            (window as any).AudioContext ||
+            (window as any).webkitAudioContext;
           if (!AudioContextClass) return;
 
           const ctx = new AudioContextClass();
@@ -156,7 +206,7 @@ export default function ExercisesPage() {
     setIsLoaded(true);
   }, []);
 
-  // ذخیره پیشرفت امروز در localStorage و همگام‌سازی لحظه‌ای pastProgress
+  // ذخیره پیشرفت امروز در localStorage
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -165,7 +215,6 @@ export default function ExercisesPage() {
 
     progress[todayKey] = completedExercises;
 
-    // حذف داده‌های بسیار قدیمی (بیش از ۱۴ روز)
     const cutoff = Date.now() - 14 * DAY_MS;
     Object.keys(progress).forEach((key) => {
       const keyDate = new Date(`${key}T00:00:00`).getTime();
@@ -178,14 +227,12 @@ export default function ExercisesPage() {
     setPastProgress({ ...progress });
   }, [completedExercises, isLoaded]);
 
-  // ساخت داده‌های ۷ روز اخیر برای نمودار
+  // داده‌های ۷ روز اخیر برای نمودار
   const weeklyChartData = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const data = [];
-
-    // ۶ روز گذشته تا امروز
     for (let offset = 6; offset >= 0; offset -= 1) {
       const targetDate = new Date(today.getTime() - offset * DAY_MS);
       const key = getLocalDateKey(targetDate);
@@ -215,7 +262,6 @@ export default function ExercisesPage() {
     return data;
   }, [completionPercent, pastProgress, totalExercises]);
 
-  // پاک‌سازی انتقال خودکار
   const clearAutoNextTimeout = () => {
     if (autoNextTimeoutRef.current) {
       clearTimeout(autoNextTimeoutRef.current);
@@ -223,7 +269,6 @@ export default function ExercisesPage() {
     }
   };
 
-  // ثبت یا لغو ثبت انجام تمرین همراه با بررسی تکمیل و پخش صدا
   const toggleExerciseCompleted = (exerciseIndex: number) => {
     setCompletedExercises((prev) => {
       let updated: number[];
@@ -231,7 +276,6 @@ export default function ExercisesPage() {
         updated = prev.filter((idx) => idx !== exerciseIndex);
       } else {
         updated = [...prev, exerciseIndex];
-        // اگر با این کلیک تمام تمرین‌ها تکمیل شدند، بلافاصله صدا را اجرا کن
         if (updated.length === totalExercises && totalExercises > 0) {
           setShowEncouragement(true);
           playCelebrationSound();
@@ -241,7 +285,7 @@ export default function ExercisesPage() {
     });
   };
 
-  // بارگذاری ویدیو
+  // بارگذاری ویدیو در تمرینات ویدیویی
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !currentExercise?.animationUrl) return;
@@ -251,14 +295,25 @@ export default function ExercisesPage() {
     void video.play().catch(() => {});
   }, [currentExercise?.animationUrl]);
 
-  // تایمر تمرین
+  // منطق تایمر هوشمند (پشتیبانی از تغییر سمت خودکار در حرکات دوطرفه)
   useEffect(() => {
     if (!isRunning) return;
 
     if (timeLeft <= 0) {
+      // اگر حرکت دوطرفه است و هنوز سمت اول تمام شده است:
+      if (isBilateral && currentSideIndex < totalSides - 1) {
+        playSideSwitchSound();
+        setCurrentSideIndex((prev) => prev + 1);
+        const nextSideDuration =
+          currentExercise?.sides?.[currentSideIndex + 1]?.duration ||
+          DEFAULT_SIDE_DURATION;
+        setTimeLeft(nextSideDuration);
+        return;
+      }
+
+      // تمرین به صورت کامل (یا تمام سمت‌های آن) تمام شد
       setIsRunning(false);
 
-      // ثبت خودکار تمرین بعد از پایان زمان
       setCompletedExercises((prev) => {
         if (prev.includes(currentIndex)) return prev;
         const updated = [...prev, currentIndex];
@@ -273,11 +328,7 @@ export default function ExercisesPage() {
       if (currentIndex < EXERCISES_DATA.length - 1) {
         clearAutoNextTimeout();
         autoNextTimeoutRef.current = setTimeout(() => {
-          setCurrentIndex((prev) =>
-            prev < EXERCISES_DATA.length - 1 ? prev + 1 : prev
-          );
-          setTimeLeft(EXERCISE_DURATION);
-          autoNextTimeoutRef.current = null;
+          goToExercise(currentIndex + 1);
         }, 1200);
       }
       return;
@@ -288,9 +339,20 @@ export default function ExercisesPage() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [isRunning, timeLeft, currentIndex, totalExercises, playCelebrationSound]);
+  }, [
+    isRunning,
+    timeLeft,
+    isBilateral,
+    currentSideIndex,
+    totalSides,
+    currentIndex,
+    totalExercises,
+    currentExercise,
+    playSideSwitchSound,
+    playCelebrationSound,
+  ]);
 
-  // پخش موزیک پس‌زمینه
+  // موزیک پس‌زمینه
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -311,7 +373,8 @@ export default function ExercisesPage() {
   const toggleTimer = () => {
     clearAutoNextTimeout();
     if (timeLeft === 0) {
-      setTimeLeft(EXERCISE_DURATION);
+      setCurrentSideIndex(0);
+      setTimeLeft(currentDuration);
       setIsRunning(true);
       return;
     }
@@ -321,15 +384,23 @@ export default function ExercisesPage() {
   const resetTimer = () => {
     clearAutoNextTimeout();
     setIsRunning(false);
-    setTimeLeft(EXERCISE_DURATION);
+    setCurrentSideIndex(0);
+    setTimeLeft(currentDuration);
   };
 
   const goToExercise = (nextIndex: number) => {
     if (nextIndex < 0 || nextIndex >= EXERCISES_DATA.length) return;
     clearAutoNextTimeout();
     setIsRunning(false);
-    setTimeLeft(EXERCISE_DURATION);
     setCurrentIndex(nextIndex);
+    setCurrentSideIndex(0);
+
+    const nextExercise = EXERCISES_DATA[nextIndex];
+    const duration =
+      nextExercise?.isBilateral && nextExercise.sides?.[0]
+        ? nextExercise.sides[0].duration
+        : DEFAULT_SIDE_DURATION;
+    setTimeLeft(duration);
   };
 
   const handleNext = () => goToExercise(currentIndex + 1);
@@ -337,7 +408,7 @@ export default function ExercisesPage() {
   const toggleSound = () => setIsMuted((prev) => !prev);
 
   const progressPercent =
-    ((EXERCISE_DURATION - timeLeft) / EXERCISE_DURATION) * 100;
+    ((currentDuration - timeLeft) / currentDuration) * 100;
 
   if (!currentExercise) {
     return (
@@ -359,7 +430,6 @@ export default function ExercisesPage() {
       className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans"
       dir="rtl"
     >
-      {/* فایل صوتی پس‌زمینه */}
       <audio ref={audioRef} src="/exercise-bgm.m4a" loop preload="none" />
 
       {/* هدر صفحه */}
@@ -395,12 +465,26 @@ export default function ExercisesPage() {
 
       {/* بدنه اصلی */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* ستون ویدیو و کنترل‌ها */}
+        {/* ستون نمایش تصویر/ویدیو و کنترل‌ها */}
         <section className="lg:col-span-7 flex flex-col gap-4">
           <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 overflow-hidden">
-            {/* قاب ویدیو */}
+            {/* کادر مدیا (پشتیبانی از تصویر دوطرفه یا ویدیو) */}
             <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-inner">
-              {currentExercise.animationUrl ? (
+              {isBilateral && currentSide ? (
+                <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gradient-to-b from-slate-800 to-slate-900">
+                  <img
+                    key={currentSide.image}
+                    src={currentSide.image}
+                    alt={`${currentExercise.title} - ${currentSide.label}`}
+                    className="max-h-full max-w-full object-contain drop-shadow-md rounded-xl transition-all duration-500"
+                  />
+                  {/* نشانگر جهت فعال */}
+                  <div className="absolute top-4 left-4 bg-teal-600/90 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-md backdrop-blur-sm animate-pulse flex items-center gap-1.5">
+                    <span>🔄</span>
+                    <span>{currentSide.label}</span>
+                  </div>
+                </div>
+              ) : currentExercise.animationUrl ? (
                 <video
                   ref={videoRef}
                   key={currentExercise.animationUrl}
@@ -416,7 +500,7 @@ export default function ExercisesPage() {
                 </video>
               ) : (
                 <p className="px-4 text-center text-sm text-white">
-                  برای این تمرین ویدیویی ثبت نشده است.
+                  برای این تمرین فایل تصویری ثبت نشده است.
                 </p>
               )}
 
@@ -431,14 +515,32 @@ export default function ExercisesPage() {
               )}
             </div>
 
+            {/* برچسب راهنمای دوطرفه بودن */}
+            {isBilateral && currentExercise.sides && (
+              <div className="mt-3 flex items-center justify-center gap-2">
+                {currentExercise.sides.map((side, idx) => (
+                  <span
+                    key={side.side}
+                    className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${
+                      idx === currentSideIndex
+                        ? "bg-teal-600 text-white shadow-sm scale-105"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    مرحله {idx + 1}: {side.label} ({side.duration} ثانیه)
+                  </span>
+                ))}
+              </div>
+            )}
+
             {/* نوار پیشرفت تایمر */}
             <div
               className="mt-4 bg-slate-100 h-2 rounded-full overflow-hidden"
               role="progressbar"
               aria-label="پیشرفت زمان تمرین"
               aria-valuemin={0}
-              aria-valuemax={EXERCISE_DURATION}
-              aria-valuenow={EXERCISE_DURATION - timeLeft}
+              aria-valuemax={currentDuration}
+              aria-valuenow={currentDuration - timeLeft}
             >
               <div
                 className="bg-teal-600 h-full transition-all duration-1000 ease-linear rounded-full"
@@ -461,8 +563,10 @@ export default function ExercisesPage() {
                   {isRunning
                     ? "⏸ توقف تمرین"
                     : timeLeft === 0
-                      ? "▶ شروع دوباره"
-                      : "▶ شروع تمرین (۱۵ ثانیه)"}
+                    ? "▶ شروع دوباره"
+                    : isBilateral
+                    ? `▶ شروع تمرین (${currentSide?.label || "۱۵ ثانیه"})`
+                    : "▶ شروع تمرین (۱۵ ثانیه)"}
                 </button>
 
                 <button
@@ -485,7 +589,7 @@ export default function ExercisesPage() {
               </div>
             </div>
 
-            {/* دکمه ثبت انجام تمرین */}
+            {/* دکمه ثبت دستی انجام تمرین */}
             <button
               type="button"
               onClick={() => toggleExerciseCompleted(currentIndex)}
@@ -501,7 +605,7 @@ export default function ExercisesPage() {
             </button>
 
             {/* جابه‌جایی بین تمرین‌ها */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={handlePrev}
@@ -511,7 +615,7 @@ export default function ExercisesPage() {
                 ← تمرین قبلی
               </button>
 
-              <span className="text-xs text-slate-400 text-center">
+              <span className="text-xs text-slate-500 text-center flex-1 font-semibold">
                 {currentExercise.title}
               </span>
 
@@ -529,7 +633,6 @@ export default function ExercisesPage() {
 
         {/* ستون توضیحات تمرین */}
         <section className="lg:col-span-5 flex flex-col gap-4">
-          {/* نوار کوچک پیشرفت بالای صفحه */}
           <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -556,6 +659,11 @@ export default function ExercisesPage() {
             <div className="border-b border-slate-100 pb-4 mb-4">
               <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs mb-1">
                 <span>وضعیت: {currentExercise.position}</span>
+                {isBilateral && (
+                  <span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded text-[11px] font-bold">
+                    دوطرفه (۳۰ ثانیه کل)
+                  </span>
+                )}
               </div>
 
               <h2 className="text-2xl font-black text-slate-800">

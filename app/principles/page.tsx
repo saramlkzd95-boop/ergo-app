@@ -17,6 +17,8 @@ interface PrincipleItem {
   icon: React.ReactNode;
   items: string[];
   image: string;
+  secondaryModalImage?: string; // عکس دوم اختصاصی مودال (مثلاً فاصله مانیتور)
+  secondaryModalLabel?: string;
   incorrectImage?: string;
   encouragementMessage: string;  // پیام تشویقی «انجام دادم»
   motivationalMessage: string;   // پیام انگیزشی روان و کوتاه «انجام ندادم»
@@ -156,7 +158,8 @@ export default function Home() {
       items: [
         "ارتفاع صندلی را طوری تنظیم کنید که پاها کاملاً روی زمین یا زیرپایی قرار بگیرند.",
         "کمرتان را به پشتی صندلی تکیه دهید تا قوس طبیعی کمر حمایت شود.",
-        "عمق تخت صندلی باید طوری باشد که چند انگشت بین لبه صندلی و زانو فضای کافی وجود داشته باشد."
+        "بهترین زاویه برای پشتی صندلی 100 الی 110 درجه می باشد.",
+        "عمق نشیمنگاه صندلی باید طوری باشد که به اندازه یک مشت گره کرده ( 7.5 سانتی متر) بین لبه صندلی و پشت زانو فضاوجود داشته باشد."
       ]
     },
     {
@@ -164,29 +167,17 @@ export default function Home() {
       title: "تنظیم صفحه‌نمایش",
       icon: <Monitor className="w-5 h-5 sm:w-6 sm:h-6 text-[#0f4c5c]" />,
       image: "/images/assessment/monitor-height-correct.png",
-      encouragementMessage: "آفرین! حالا گردنت در زاویه طبیعی قرار گرفته و فشاری روش نیست.",
-      motivationalMessage: "با گذاشتن یک کتاب زیر مانیتور، همین الان گردنت رو از فشار نجات بده.",
-      assistantTip: "نمی‌دونی بالای مانیتور باید کجای چشمت باشه؟ از دستیار ارگونو راهنمایی بگیر.",
-      assistantPrompt: "سلام، چطور ارتفاع صفحه‌نمایشم رو تنظیم کنم تا گردنم خم نشه و دچار آرتروز یا گردن‌درد نشم؟",
+      secondaryModalImage: "/images/assessment/monitor-distance-correct.png",
+      secondaryModalLabel: "فاصله استاندارد تا چشم (۵۰ تا ۷۰ سانتی‌متر)",
+      encouragementMessage: "آفرین! حالا گردنت در زاویه طبیعی قرار گرفته و فاصله مناسب خستگی چشمت رو رفع می‌کنه.",
+      motivationalMessage: "با تنظیم ارتفاع مانیتور و یک دست باز فاصله، همین الان گردن و چشمت رو نجات بده.",
+      assistantTip: "نمی‌دونی بالای مانیتور یا فاصله‌اش باید دقیقاً چقدر باشه؟ از دستیار ارگونو راهنمایی بگیر.",
+      assistantPrompt: "سلام، چطور ارتفاع و فاصله دقیق صفحه‌نمایشم رو تنظیم کنم تا گردنم خم نشه و چشمم خسته نشه؟",
       items: [
-        "مانیتور را مستقیم روبه‌روی خود و کمی پایین‌تر از سطح چشم قرار دهید.",
-        "صفحه را در فاصله‌ای بگذارید که متن را بدون خم‌شدن به جلو به‌راحتی ببینید.",
-        "مراقب باشید نور پنجره یا چراغ مستقیماً روی صفحه بازتاب نداشته باشد."
-      ]
-    },
-    {
-      id: "monitor-distance",
-      title: "فاصله مانیتور",
-      icon: <Monitor className="w-5 h-5 sm:w-6 sm:h-6 text-[#0f4c5c]" />,
-      image: "/images/assessment/monitor-distance-correct.png",
-      encouragementMessage: "فوق‌العاده است! رعایت فاصله یک بازو، خستگی چشم رو خیلی کم می‌کنه.",
-      motivationalMessage: "مانیتور رو به اندازه طول دستت عقب ببر تا چشمهات کمتر خسته بشن.",
-      assistantTip: "برای محاسبه دقیق فاصله مانیتور بر اساس سایز صفحه‌نمایشت، با دستیار ارگونو مشورت کن.",
-      assistantPrompt: "سلام، فاصله استاندارد چشم تا مانیتور چقدر باید باشه و چطور با سایز مانیتور تنظیمش کنم؟",
-      items: [
-        "فاصله مانیتور تا چشم حدود فاصله یک بازو باشد (۵۰ تا ۷۰ سانتی‌متر).",
-        "اگر به صفحه نزدیک می‌شوید یا سر را جلو می‌دهید، فاصله را بیشتر کنید.",
-        "اندازه متن را طوری تنظیم کنید که در همین فاصله به‌راحتی خوانده شود."
+        "صفحه نمایش را مستقیم روبه‌روی خود قرار دهید بطوری که لبه بالای آن هم راستای چشم شما باشد.",
+        "فاصله صفحه نمایش تا چشم را حدود یک دست باز شده (۵۰ تا ۷۰ سانتی‌متر) تنظیم کنید.",
+        "صفحه نمایش را به گونه ای تنظیم کنید که متن را بدون خم شدن به جلو، به راحتی ببینید.",
+        "صفحه نمایش را به گونه ای تنظیم کنید که نور پنجره یا لامپ مستقیما روی آن نتابد و خیرگی ایجاد نکند."
       ]
     },
     {
@@ -216,7 +207,7 @@ export default function Home() {
       items: [
         "سر و گردن را در راستای تنه نگه دارید.",
         "زانو حدود ۹۰ درجه و هم‌سطح یا کمی پایین‌تر از لگن قرار بگیرد.",
-        "یادتان باشد: بهترین وضعیت، وضعیتی است که مرتب تغییر کند."
+        "یادتان باشد: بهترین وضعیت، وضعیتی است که برای پیشگیری از خستگی، پس از مدتی کار کردن ( مثلا 30 الی 45 دقیقه) تغییر کند( نشستن پویا)."
       ]
     },
     {
@@ -230,7 +221,7 @@ export default function Home() {
       assistantPrompt: "سلام، چشم‌هام پشت مانیتور خشک و خسته میشن. قانون ۲۰-۲۰-۲۰ و راهکارهای ارگونومی محافظت از چشم چیه؟",
       items: [
         "هر ۲۰ دقیقه، ۲۰ ثانیه به نقطه‌ای در فاصله حدود ۶ متری نگاه کنید.",
-        "هنگام کار با صفحه‌نمایش، مرتب پلک بزنید تا خشکی چشم کمتر شود.",
+        "هنگام کار با صفحه‌نمایش، مرتب پلک بزنید تا از خشکی چشم جلوگیری کنید.",
         "اندازه نوشته‌ها را طوری تنظیم کنید که چشمانتان تحت فشار نباشد."
       ]
     },
@@ -283,7 +274,7 @@ export default function Home() {
     },
     {
       id: "desk-layout",
-      title: "چیدمان میز و اسناد",
+      title: "چیدمان میز و محیط کار",
       icon: <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-[#0f4c5c]" />,
       image: "/images/assessment/documents-holder-side-correct.png",
       incorrectImage: "/images/assessment/documents-holder-side-incorrect.png",
@@ -292,7 +283,8 @@ export default function Home() {
       assistantTip: "بهترین چیدمان ارگونومیک وسایل روی میز رو از دستیار ارگونو بخواه.",
       assistantPrompt: "سلام، چطور وسایل روی میزم رو بچینم تا مجبور نباشم مکرراً برای برداشتن وسایل یا اسناد کشش غیرعادی بدم؟",
       items: [
-        "وسایلی که بیشتر استفاده می‌کنید را نزدیک و در دسترس بگذارید.",
+        "وسایلی که بیشتر استفاده می‌کنید را در دسترس بگذارید.",
+        "بعضی از تجهیزات محیط کار مانند پرینتر، اسکنر، سطل زباله و ... را دور از دسترس قرار دهید تا مجبور به بلند شدن و تحرک بیشتر شوید.",
         "اسناد را در ارتفاعی نزدیک به صفحه‌نمایش قرار دهید.",
         "برای کار طولانی با اسناد، از پایه نگهدارنده سند استفاده کنید."
       ]
@@ -401,7 +393,7 @@ export default function Home() {
       <section id="principles" className="py-8 sm:py-16 px-3.5 sm:px-6 max-w-6xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full mb-3">
-            <span>ارزیابی روزانه وضعیت میز کار</span>
+            <span>ارزیابی روزانه وضعیت کار</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#0f4c5c] mb-2 sm:mb-4">
@@ -498,7 +490,7 @@ export default function Home() {
               <h3 className="text-xl sm:text-2xl font-black text-[#0f4c5c]">{selectedPrinciple.title}</h3>
             </div>
 
-            {/* تصاویر مقایسه‌ای یا تک‌تصویر */}
+            {/* حالت ۱: دارای عکس مقایسه‌ای وضعیت درست/نادرست */}
             {selectedPrinciple.incorrectImage ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 my-3 sm:my-4">
                 <div className="bg-[#f8fafc] rounded-xl sm:rounded-2xl border border-emerald-200/80 p-2.5 sm:p-3 flex flex-col items-center">
@@ -537,7 +529,47 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            ) : selectedPrinciple.secondaryModalImage ? (
+              /* حالت ۲: دارای عکس دوم آموزشی در مودال (تنظیم صفحه‌نمایش + فاصله) */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 my-3 sm:my-4">
+                <div className="bg-[#f8fafc] rounded-xl sm:rounded-2xl border border-teal-200/80 p-2.5 sm:p-3 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-center mb-1.5 px-1">
+                    <span className="text-xs font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                      تنظیم ارتفاع و زاویه دید
+                    </span>
+                  </div>
+                  <div className="w-full h-44 sm:h-64 relative">
+                    <Image
+                      src={selectedPrinciple.image}
+                      alt={`${selectedPrinciple.title} - ارتفاع`}
+                      fill
+                      className="object-contain p-1 sm:p-2"
+                      sizes="(max-width: 640px) 100vw, 380px"
+                      priority
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-[#f8fafc] rounded-xl sm:rounded-2xl border border-teal-200/80 p-2.5 sm:p-3 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-center mb-1.5 px-1">
+                    <span className="text-xs font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                      {selectedPrinciple.secondaryModalLabel || "فاصله استاندارد تا چشم"}
+                    </span>
+                  </div>
+                  <div className="w-full h-44 sm:h-64 relative">
+                    <Image
+                      src={selectedPrinciple.secondaryModalImage}
+                      alt={`${selectedPrinciple.title} - فاصله`}
+                      fill
+                      className="object-contain p-1 sm:p-2"
+                      sizes="(max-width: 640px) 100vw, 380px"
+                      priority
+                    />
+                  </div>
+                </div>
+              </div>
             ) : (
+              /* حالت ۳: تک‌عکس استاندارد */
               <div className="my-3 sm:my-4 w-full h-52 sm:h-80 bg-[#f8fafc] rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-100 flex items-center justify-center">
                 <Image
                   src={selectedPrinciple.image}

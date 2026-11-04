@@ -16,17 +16,17 @@ export default function Home() {
             {/* نشان بالای تیتر */}
             <div className="inline-flex items-center gap-2 bg-[#d8f3dc] text-[#1b4332] px-3.5 py-1.5 rounded-full text-xs font-semibold max-w-full">
               <Sparkles size={14} className="text-[#2d6a4f] shrink-0" />
-              <span className="truncate sm:whitespace-normal">برنامه آموزشی مبتنی بر نظریه شناختی اجتماعی</span>
+              <span className="truncate sm:whitespace-normal">برنامه آموزش ارگونومی مبتنی بر نظریه شناختی اجتماعی</span>
             </div>
 
             {/* تیتر اصلی */}
-            <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-slate-900 leading-tight">
-              با ارگونو، بدون <span className="text-[#2d6a4f]">گردن‌درد و کمردرد</span> پشت میز کارت بمون
+            <h1 className="text-2xl sm:text-2xl md:text-5xl font-black text-slate-900 leading-tight">
+               با ارگونو، بدون درد های اسکلتی-عضلانی <span className="text-[#2d6a4f]">(گردن‌،شانه،مچ دست، کمر و...)</span> به کارت ادامه بده.
             </h1>
 
             {/* توضیحات تکمیلی */}
             <p className="text-slate-900 text-sm sm:text-base md:text-lg leading-relaxed font-normal">
-              ارگونو مربی شخصی شماست برای پیشگیری از دردهای گردن، شانه و کمر ناشی از کار طولانی با رایانه. آموزش‌های علمی، تمرینات روزانه و چک‌لیست تعاملی – همه در یک‌جا.
+              ارگونو مربی شخصی شماست برای پیشگیری از دردهای گردن، شانه،کمر، مچ دست و .... ناشی از کار طولانی با رایانه. آموزش‌های علمی، تمرینات روزانه و چک‌لیست تعاملی – همه در یک‌جا.
             </p>
 
             {/* دکمه‌های اقدام (CTA) */}

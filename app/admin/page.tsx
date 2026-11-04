@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Search,
   Activity,
-  ArrowUpLeft
+  ArrowUpLeft,
+  Percent
 } from 'lucide-react';
 
 interface ChecklistRecord {
@@ -29,15 +30,67 @@ interface ChecklistRecord {
   created_at?: string;
 }
 
+interface AuthUserRpc {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  created_at: string | null;
+}
+
 interface UserSummary {
   userId: string;
+  fullName: string;
   totalSubmissions: number;
   lastActiveDate: string;
-  averageScore: number;
+  lastActiveDateJalali: string;
+  adherencePercentage: number;   
+  averageScore: number;          
   maxStreak: number;
+  expectedWorkingDays: number;
+  submittedWorkingDays: number;
   discomfortDistribution: { [key: string]: number };
   records: ChecklistRecord[];
 }
+
+// تابع تبدیل تاریخ میلادی به تقویم شمسی
+const toPersianDate = (dateStr: string): string => {
+  if (!dateStr || dateStr === '—') return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return new Intl.DateTimeFormat('fa-IR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
+};
+
+// محاسبه روزهای کاری (بدون پنج‌شنبه و جمعه) بین دو تاریخ
+const countWorkingDays = (startDate: Date, endDate: Date): number => {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+
+  if (start > end) return 1;
+
+  let count = 0;
+  const current = new Date(start);
+
+  while (current <= end) {
+    const day = current.getDay();
+    if (day !== 4 && day !== 5) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return Math.max(count, 1);
+};
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -77,7 +130,17 @@ export default function AdminDashboardPage() {
 
       setIsAdmin(true);
 
-      // ۲. دریافت گزارش پیشرفت همه کاربران
+      // ۲. دریافت اطلاعات و نام کاربران از طریق تابع امن RPC
+      const authUsersMap = new Map<string, AuthUserRpc>();
+      const { data: rpcUsers, error: rpcErr } = await supabase.rpc('get_admin_auth_user_names');
+
+      if (!rpcErr && rpcUsers) {
+        (rpcUsers as AuthUserRpc[]).forEach((u) => {
+          authUsersMap.set(u.id, u);
+        });
+      }
+
+      // ۳. دریافت گزارش پیشرفت همه کاربران
       const { data: records, error: recordsErr } = await supabase
         .from('checklist_progress')
         .select('*')
@@ -85,7 +148,7 @@ export default function AdminDashboardPage() {
 
       if (recordsErr) throw recordsErr;
 
-      // ۳. گروه‌بندی و محاسبات شاخص‌ها
+      // ۴. گروه‌بندی رکوردها بر اساس شناسه کاربر
       const grouped: { [key: string]: ChecklistRecord[] } = {};
       (records || []).forEach((rec: ChecklistRecord) => {
         if (!grouped[rec.user_id]) {
@@ -94,16 +157,53 @@ export default function AdminDashboardPage() {
         grouped[rec.user_id].push(rec);
       });
 
+      const today = new Date();
+
       const summaries: UserSummary[] = Object.keys(grouped).map((uid) => {
         const userRecs = grouped[uid];
-        const total = userRecs.length;
+        const authUsr = authUsersMap.get(uid);
 
-        const totalScore = userRecs.reduce((acc, cur) => {
+        // دریافت نام و نام خانوادگی
+        let fullName = authUsr?.full_name?.trim() || '';
+
+        if (!fullName) {
+          fullName = `کاربر (${uid.substring(0, 6)})`;
+        }
+
+        // تاریخ ثبت‌نام کاربر
+        let regDate = authUsr?.created_at ? new Date(authUsr.created_at) : null;
+
+        if (!regDate || isNaN(regDate.getTime())) {
+          const oldestRecord = userRecs[userRecs.length - 1];
+          regDate = oldestRecord?.created_at 
+            ? new Date(oldestRecord.created_at) 
+            : (oldestRecord?.date ? new Date(oldestRecord.date) : new Date());
+        }
+
+        const expectedDays = countWorkingDays(regDate, today);
+
+        const distinctDates = new Set<string>();
+        userRecs.forEach((r) => {
+          if (r.date) distinctDates.add(r.date.split('T')[0]);
+        });
+        const submittedDays = distinctDates.size;
+
+        const adherencePct = Math.min(100, Math.round((submittedDays / expectedDays) * 100));
+
+        // مجموع نمرات به‌دست‌آمده از چک‌لیست‌ها
+        const totalScoreAchieved = userRecs.reduce((acc, cur) => {
           const score = cur.progress_percentage ?? cur.percentage ?? 0;
           return acc + score;
         }, 0);
 
-        const avgScore = total > 0 ? Math.round(totalScore / total) : 0;
+        // حداکثر نمره‌ای که کاربر در کل روزهای کاری دوره می‌توانست کسب کند (هر روز کاری ۱۰۰ نمره)
+        const totalPossibleScore = expectedDays * 100;
+
+        // محاسبه میانگین کل بر مبنای روزهای موردانتظار: (مجموع نمرات / سقف نمرات ممکن) * 100
+        const avgScore = totalPossibleScore > 0 
+          ? Math.min(100, Math.round((totalScoreAchieved / totalPossibleScore) * 100))
+          : 0;
+
         const highestStreak = Math.max(...userRecs.map((r) => r.streak_count || 0), 0);
 
         const discomfortCount: { [key: string]: number } = {};
@@ -113,12 +213,19 @@ export default function AdminDashboardPage() {
           }
         });
 
+        const lastRawDate = userRecs[0]?.date || '—';
+
         return {
           userId: uid,
-          totalSubmissions: total,
-          lastActiveDate: userRecs[0]?.date || '—',
+          fullName: fullName,
+          totalSubmissions: userRecs.length,
+          lastActiveDate: lastRawDate,
+          lastActiveDateJalali: toPersianDate(lastRawDate),
+          adherencePercentage: adherencePct,
           averageScore: avgScore,
           maxStreak: highestStreak,
+          expectedWorkingDays: expectedDays,
+          submittedWorkingDays: submittedDays,
           discomfortDistribution: discomfortCount,
           records: userRecs,
         };
@@ -179,12 +286,13 @@ export default function AdminDashboardPage() {
   }
 
   const filteredUsers = usersSummary.filter((u) =>
+    u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.userId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalSubmissionsAll = usersSummary.reduce((a, b) => a + b.totalSubmissions, 0);
-  const totalAvgCompliance = usersSummary.length > 0
-    ? Math.round(usersSummary.reduce((a, b) => a + b.averageScore, 0) / usersSummary.length)
+  const totalAvgAdherence = usersSummary.length > 0
+    ? Math.round(usersSummary.reduce((a, b) => a + b.adherencePercentage, 0) / usersSummary.length)
     : 0;
 
   return (
@@ -218,10 +326,8 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ۳ کارت آماری ارگونو (طراحی تطبیق‌یافته با صفحه چک‌لیست) */}
+        {/* ۳ کارت آماری ارگونو */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-          
-          {/* کارت سرمه‌ای برجسته ارگونو */}
           <div className="bg-[#113a53] text-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-sm relative overflow-hidden">
             <div className="flex justify-end">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-sm">
@@ -238,7 +344,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* کارت سفید میانگین رعایت با آیکون سبز تیل */}
           <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
             <div className="flex justify-end">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-teal-50 flex items-center justify-center">
@@ -247,15 +352,14 @@ export default function AdminDashboardPage() {
             </div>
             <div className="mt-3 sm:mt-4 text-center">
               <span className="text-3xl sm:text-5xl font-black text-[#113a53] block tracking-tight">
-                {totalAvgCompliance}%
+                {totalAvgAdherence}%
               </span>
               <span className="text-xs sm:text-sm font-bold text-slate-800 mt-1 block">
-                میانگین رعایت اصول ارگونومی
+                میانگین درصد رعایت روزهای کاری
               </span>
             </div>
           </div>
 
-          {/* کارت سفید کل مشارکت‌ها */}
           <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-sm border border-slate-200/80">
             <div className="flex justify-end">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-cyan-50 flex items-center justify-center">
@@ -273,9 +377,8 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* بخش جزییات کاربر انتخابی یا لیست کلی */}
+        {/* بخش جزییات کاربر انتخابی یا جدول کلی */}
         {selectedUser ? (
-          /* مشاهده ریز گزارش کاربر انتخابی */
           <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-200/80 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -285,16 +388,21 @@ export default function AdminDashboardPage() {
                 >
                   <ArrowRight className="w-4 h-4" /> بازگشت به لیست همه کاربران
                 </button>
-                <h2 className="text-lg font-black text-[#113a53] flex items-center gap-2">
-                  <span>سوابق چک‌لیست و ارزیابی کاربر</span>
-                  <span className="font-mono text-xs bg-[#eaf4f4] text-[#113a53] px-2.5 py-1 rounded-xl">
-                    {selectedUser.userId}
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-black text-[#113a53]">
+                    سوابق ارزیابی: {selectedUser.fullName}
+                  </h2>
+                  <span className="text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200 px-2.5 py-0.5 rounded-lg">
+                    درصد رعایت: {selectedUser.adherencePercentage}% ({selectedUser.submittedWorkingDays} از {selectedUser.expectedWorkingDays} روز کاری)
                   </span>
-                </h2>
+                  <span className="text-[11px] font-bold bg-[#eaf4f4] text-[#113a53] px-2.5 py-0.5 rounded-lg">
+                    میانگین کل دوره: {selectedUser.averageScore}%
+                  </span>
+                </div>
               </div>
 
               <div className="text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                مجموع رکوردها: {selectedUser.totalSubmissions} روز کاری
+                مجموع ثبت‌ها: {selectedUser.totalSubmissions} بار
               </div>
             </div>
 
@@ -302,8 +410,8 @@ export default function AdminDashboardPage() {
               <table className="w-full text-right text-xs sm:text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-500 font-bold">
-                    <th className="pb-3 pr-2">تاریخ</th>
-                    <th className="pb-3">درصد رعایت</th>
+                    <th className="pb-3 pr-2">تاریخ (شمسی)</th>
+                    <th className="pb-3">نمره چک‌لیست</th>
                     <th className="pb-3">استریک (Streak)</th>
                     <th className="pb-3">موارد انجام‌شده</th>
                     <th className="pb-3">وضعیت درد/خستگی</th>
@@ -316,7 +424,7 @@ export default function AdminDashboardPage() {
                       <tr key={rec.id} className="hover:bg-slate-50/70 transition">
                         <td className="py-3.5 pr-2 font-mono text-slate-700 flex items-center gap-1.5 font-bold">
                           <Calendar className="w-4 h-4 text-teal-700" />
-                          {rec.date}
+                          {toPersianDate(rec.date)}
                         </td>
                         <td className="py-3.5">
                           <span
@@ -351,7 +459,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         ) : (
-          /* جدول لیست کلی کاربران */
           <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-200/80 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h2 className="font-black text-[#113a53] text-base sm:text-lg">
@@ -362,7 +469,7 @@ export default function AdminDashboardPage() {
                 <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                 <input
                   type="text"
-                  placeholder="جستجوی شناسه کاربر..."
+                  placeholder="جستجوی نام و نام خانوادگی..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-3 pr-9 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#113a53] font-medium"
@@ -379,24 +486,42 @@ export default function AdminDashboardPage() {
                 <table className="w-full text-right text-xs sm:text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-500 font-bold">
-                      <th className="pb-3 pr-2">شناسه کاربر (User ID)</th>
+                      <th className="pb-3 pr-2">نام و نام خانوادگی</th>
                       <th className="pb-3">آخرین ثبت</th>
-                      <th className="pb-3">میانگین رعایت</th>
-                      <th className="pb-3">رکورد تداوم (Streak)</th>
+                      <th className="pb-3">درصد رعایت روزها</th>
+                      <th className="pb-3">میانگین کل دوره</th>
+                      <th className="pb-3">رکورد تداوم</th>
                       <th className="pb-3">عملیات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredUsers.map((u) => (
                       <tr key={u.userId} className="hover:bg-[#eef7f6]/40 transition">
-                        <td className="py-3.5 pr-2 font-mono text-xs font-bold text-slate-700">
-                          {u.userId.substring(0, 14)}...
+                        <td className="py-3.5 pr-2 font-bold text-slate-800">
+                          {u.fullName}
                         </td>
                         <td className="py-3.5 text-xs text-slate-600 font-mono font-medium">
-                          {u.lastActiveDate}
+                          {u.lastActiveDateJalali}
                         </td>
                         <td className="py-3.5">
-                          <span className="text-xs font-black text-[#113a53] bg-teal-50 px-2.5 py-1 rounded-xl border border-teal-200">
+                          <span 
+                            title={`${u.submittedWorkingDays} از ${u.expectedWorkingDays} روز کاری`}
+                            className={`text-xs font-black px-2.5 py-1 rounded-xl border ${
+                              u.adherencePercentage >= 80
+                                ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                : u.adherencePercentage >= 50
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-rose-50 text-rose-800 border-rose-200'
+                            }`}
+                          >
+                            {u.adherencePercentage}%
+                          </span>
+                        </td>
+                        <td className="py-3.5">
+                          <span 
+                            title={`مجموع نمرات کسب‌شده تقسیم بر کل نمرات ممکن در روزهای کاری (${u.expectedWorkingDays} روز × 100)`}
+                            className="text-xs font-black text-[#113a53] bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200"
+                          >
                             {u.averageScore}%
                           </span>
                         </td>

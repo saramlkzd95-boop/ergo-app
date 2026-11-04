@@ -86,17 +86,17 @@ export default function TrainingProgramPage() {
       <div className="max-w-5xl mx-auto">
         {/* هدر صفحه */}
         <div className="text-center mb-8">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#113a53] mb-3">
+            برنامه آموزشی من
+          </h1>
+
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-100 text-teal-800 text-sm font-semibold mb-3 shadow-sm">
             <Sparkles className="w-4 h-4 text-teal-600" />
             <span>مبتنی بر نظریه شناختی اجتماعی (SCT)</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#113a53] mb-3">
-            برنامه آموزشی من
-          </h1>
-
           <p className="text-slate-800 font-medium text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            این برنامه آموزشی بر اساس پنج سازه از نظریه شناختی اجتماعی Bandura طراحی شده تا به شما کمک کند عادت‌های ارگونومیک سالم را به رفتار پایدار تبدیل کنید.
+            این برنامه آموزشی بر اساس پنج سازه از نظریه شناختی اجتماعی Bandura طراحی شده تا به شما کمک کند عادت‌های ارگونومیک را به رفتار پایدار تبدیل کنید.
           </p>
         </div>
 
@@ -170,7 +170,7 @@ export default function TrainingProgramPage() {
             href="/principles"
             className="w-full sm:w-auto inline-flex items-center justify-center px-7 py-3 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition text-sm"
           >
-            مشاهده اصول 14 گانه
+            مشاهده اصول 13 گانه
           </Link>
         </div>
       </div>

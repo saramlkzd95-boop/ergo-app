@@ -1,3 +1,10 @@
+export interface ExerciseSide {
+  side: 'right' | 'left';
+  label: string;
+  duration: number; // 15 seconds per side
+  image: string;    // path to PNG
+}
+
 export interface Exercise {
   id: string;
   title: string;
@@ -7,10 +14,45 @@ export interface Exercise {
   breathing: string;
   result: string;
   caution?: string;
-  animationUrl: string;
+  animationUrl?: string; // Optional for video exercises
+  isBilateral?: boolean; // True for two-sided image exercises
+  sides?: ExerciseSide[]; // Sides configuration
 }
 
 export const EXERCISES_DATA: Exercise[] = [
+  // --- حرکات جدید دوطرفه تصویری ---
+  {
+    id: "neck-stretch-bilateral",
+    title: "کشش عضلات گردن (دوطرفه)",
+    titleEn: "Bilateral Neck Stretch",
+    position: "نشسته یا ایستاده",
+    instruction: "سر خود را به‌آرامی به سمت راست خم کنید تا کشش ملایمی در سمت چپ گردن احساس شود. پس از ۱۵ ثانیه به‌طور خودکار به سمت چپ تغییر وضعیت دهید.",
+    breathing: "هنگام خم کردن سر بازدم کنید و در طول کشش تنفس آرام داشته باشید.",
+    result: "کاهش فشار و گرفتگی عضلات گردن و بهبود وضعیت سر به جلو.",
+    caution: "حرکت را بسیار آرام انجام دهید و از فشار ناگهانی پرهیز کنید.",
+    isBilateral: true,
+    sides: [
+      { side: 'right', label: 'سمت راست', duration: 15, image: '/images/exercises/neck_stretch_right.png' },
+      { side: 'left', label: 'سمت چپ', duration: 15, image: '/images/exercises/neck_stretch_left.png' }
+    ]
+  },
+  {
+    id: "triceps-stretch-bilateral",
+    title: "کشش پشت بازو و سرشانه (دوطرفه)",
+    titleEn: "Bilateral Triceps Stretch",
+    position: "ایستاده یا نشسته",
+    instruction: "دست راست را بالا برده و از آرنج خم کنید؛ با دست چپ آرنج را به سمت عقب بکشید. پس از ۱۵ ثانیه حرکت برای دست چپ تکرار می‌شود.",
+    breathing: "نفس عمیق بکشید و هنگام کشش بازدم کنید.",
+    result: "کاهش خستگی کمربند شانه‌ای و باز شدن عضلات پشت بازو.",
+    caution: "ستون فقرات کاملاً صاف باشد و سر در امتداد بدن بماند.",
+    isBilateral: true,
+    sides: [
+      { side: 'right', label: 'دست راست', duration: 15, image: '/images/exercises/triceps_stretch_right.png' },
+      { side: 'left', label: 'دست چپ', duration: 15, image: '/images/exercises/triceps_stretch_left.png' }
+    ]
+  },
+
+  // --- حرکات ویدیویی قبلی شما ---
   {
     id: "head-side-to-side",
     title: "خم کردن سر به طرفین",
@@ -170,7 +212,7 @@ export const EXERCISES_DATA: Exercise[] = [
     titleEn: "Standing Side Bend",
     position: "ایستاده",
     instruction:
-      "صاف بایستید، دست ها را پشت سر قلاب کرده و سر را کمی به سمت عقب فشار دهید. آرام به سمت پهلوی راست خم شوید، سپس به حالت اول برگشته و حرکت را با سمت دیگر تکرار کنید. .",
+      "صاف بایستید، دست ها را پشت سر قلاب کرده و سر را کمی به سمت عقب فشار دهید. آرام به سمت پهلوی راست خم شوید، سپس به حالت اول برگشته و حرکت را با سمت دیگر تکرار کنید.",
     breathing: "هنگام خم شدن به پهلو بازدم کنید و هنگام بازگشت به حالت ایستاده دم بگیرید.",
     result: "افزایش انعطاف‌پذیری ستون فقرات و کاهش گرفتگی عضلات پهلو و کمر.",
     caution: "از متمایل شدن تنه به سمت جلو یا عقب حین خم شدن خودداری کنید.",
