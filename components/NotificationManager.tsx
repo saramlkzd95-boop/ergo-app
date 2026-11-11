@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Send, Check, X, Volume2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -14,6 +15,15 @@ interface FixedNotification {
   time: string;
   title: string;
   body: string;
+  href: string;
+  actionLabel: string;
+}
+
+interface ReminderModal {
+  title: string;
+  body: string;
+  href?: string;
+  actionLabel?: string;
 }
 
 const notificationMessages: NotificationMsg[] = [
@@ -27,8 +37,20 @@ const notificationMessages: NotificationMsg[] = [
 ];
 
 const fixedNotifications: FixedNotification[] = [
-  { time: "10:00", title: "زمان انجام تمرینات اصلاحی 🧘‍♂️", body: "چند دقیقه برای تمرینات کششی وقت بگذار و بدنت رو رفرش کن." },
-  { time: "12:00", title: "یادآوری تکمیل چک‌لیست روزانه 📋", body: "چک‌لیست روزانه ارگونو را تکمیل کن تا وضعیت امروز ثبت شود." },
+  {
+    time: "10:00",
+    title: "زمان انجام تمرینات اصلاحی 🧘‍♂️",
+    body: "چند دقیقه برای تمرینات کششی وقت بگذار و بدنت رو رفرش کن.",
+    href: "/exercises",
+    actionLabel: "ورود به صفحه تمرینات",
+  },
+  {
+    time: "12:00",
+    title: "یادآوری تکمیل چک‌لیست روزانه 📋",
+    body: "چک‌لیست روزانه ارگونو را تکمیل کن تا وضعیت امروز ثبت شود.",
+    href: "/checklist",
+    actionLabel: "ورود به صفحه چک‌لیست",
+  },
 ];
 
 const STORAGE_KEY = "ergono_reminder_settings";
@@ -43,7 +65,7 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
   const [enabled, setEnabled] = useState<boolean>(true);
   const [intervalTime, setIntervalTime] = useState<number>(1);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
-  const [modal, setModal] = useState<{ title: string; body: string } | null>(null);
+  const [modal, setModal] = useState<ReminderModal | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastPeriodicRef = useRef<number>(Date.now());
@@ -88,8 +110,13 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
     }
   };
 
-  const showAlert = (title: string, body: string) => {
-    setModal({ title, body });
+  const showAlert = (
+    title: string,
+    body: string,
+    href?: string,
+    actionLabel?: string
+  ) => {
+    setModal({ title, body, href, actionLabel });
     playAlertSound();
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
       try {
@@ -263,7 +290,7 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
         const [targetH, targetM] = n.time.split(":").map(Number);
         if (currentHours === targetH && currentMinutes === targetM) {
           if (lastAlertedTimesRef.current[n.time] !== todayStr) {
-            showAlert(n.title, n.body);
+            showAlert(n.title, n.body, n.href, n.actionLabel);
             lastAlertedTimesRef.current[n.time] = todayStr;
           }
         }
@@ -375,6 +402,16 @@ export default function ReminderBar({ variant }: ReminderBarProps) {
 
             <h3 className="text-base font-extrabold text-slate-800 mb-1">{modal.title}</h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-4">{modal.body}</p>
+
+            {modal.href && modal.actionLabel && (
+              <Link
+                href={modal.href}
+                onClick={() => setModal(null)}
+                className="block w-full bg-[#113a53] text-white py-2 rounded-xl text-xs font-bold hover:bg-[#0c2b3d] transition-colors mb-2"
+              >
+                {modal.actionLabel}
+              </Link>
+            )}
 
             <button
               onClick={() => setModal(null)}
