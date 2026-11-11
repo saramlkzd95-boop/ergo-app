@@ -1,11 +1,24 @@
+"use client";
+
+import { useState } from "react"; // اضافه شد
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Sparkles, CheckCircle, ShieldCheck, Activity, Award, BookOpen, Target } from "lucide-react";
 import NotificationManager from "@/components/NotificationManager";
+import StartOfDayModal from "@/components/StartOfDayModal"; // اضافه شد
 
 export default function Home() {
+  // تابعی برای رفرش کردن داده‌ها در صورت نیاز بعد از بستن مودال
+  const handleModalComplete = () => {
+    console.log("تنظیمات شروع روز انجام و در دیتابیس ثبت شد.");
+    // اینجا می‌توانید در صورت نیاز لیستی را آپدیت کنید
+  };
+
   return (
     <div className="min-h-screen bg-[#eaf4f4] font-[Vazirmatn] overflow-x-hidden">
+      {/* نمایش مودال شروع روز */}
+      <StartOfDayModal onComplete={handleModalComplete} />
+
       {/* Hero Section */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
@@ -82,15 +95,22 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+          
+          {/* کارت چک‌لیست روزانه */}
+          <Link
+            href="/checklist"
+            className="block bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center group-hover:bg-[#1b4332] group-hover:text-white transition-colors">
               <CheckCircle size={24} />
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">چک‌لیست روزانه</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1b4332] transition-colors">
+              چک‌لیست روزانه
+            </h3>
             <p className="text-slate-900 text-xs sm:text-sm leading-relaxed">
               ارزیابی تعاملی وضعیت نشستن، تنظیم مانیتور و صندلی به صورت روزانه.
             </p>
-          </div>
+          </Link>
 
           {/* کارت تمرینات کششی */}
           <Link
@@ -108,45 +128,70 @@ export default function Home() {
             </p>
           </Link>
 
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+          {/* کارت آموزش‌های گام‌به‌گام */}
+          <Link
+            href="/principles"
+            className="block bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center group-hover:bg-[#1b4332] group-hover:text-white transition-colors">
               <BookOpen size={24} />
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">آموزش‌های گام‌به‌گام</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1b4332] transition-colors">
+              آموزش‌های گام‌به‌گام
+            </h3>
             <p className="text-slate-900 text-xs sm:text-sm leading-relaxed">
               محتوای کاربردی مبتنی بر شواهد علمی برای پیشگیری از آسیب‌های اسکلتی.
             </p>
-          </div>
+          </Link>
 
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+          {/* کارت پیگیری پیشرفت */}
+          <Link
+            href="/progress"
+            className="block bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center group-hover:bg-[#1b4332] group-hover:text-white transition-colors">
               <Target size={24} />
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">پیگیری پیشرفت</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1b4332] transition-colors">
+              پیگیری پیشرفت
+            </h3>
             <p className="text-slate-900 text-xs sm:text-sm leading-relaxed">
               مشاهده نمودار بهبود وضعیت بدنی و میزان رعایت اصول ارگونومی.
             </p>
-          </div>
+          </Link>
 
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+          {/* کارت خودکارآمدی شغلی (متصل به آموزش‌های من) */}
+          <Link
+            href="/training"
+            className="block bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center group-hover:bg-[#1b4332] group-hover:text-white transition-colors">
               <ShieldCheck size={24} />
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">خودکارآمدی شغلی</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1b4332] transition-colors">
+              خودکارآمدی شغلی
+            </h3>
             <p className="text-slate-900 text-xs sm:text-sm leading-relaxed">
               افزایش انگیزه و توانمندی فردی برای مدیریت سلامت در محیط کار.
             </p>
-          </div>
+          </Link>
 
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center">
+          {/* کارت پاداش و نشان‌ها */}
+          <Link
+            href="/rewards"
+            className="block bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 bg-emerald-50 text-[#1b4332] rounded-xl flex items-center justify-center group-hover:bg-[#1b4332] group-hover:text-white transition-colors">
               <Award size={24} />
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">پاداش و نشان‌ها</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-[#1b4332] transition-colors">
+              پاداش و نشان‌ها
+            </h3>
             <p className="text-slate-900 text-xs sm:text-sm leading-relaxed">
               کسب امتیاز و دریافت مدال‌های سلامتی با انجام منظم تمرینات.
             </p>
-          </div>
+          </Link>
+
         </div>
       </section>
 
