@@ -1,8 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Sparkles, BookOpen, Target, ArrowLeft, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  Sparkles, 
+  BookOpen, 
+  Target, 
+  ArrowLeft, 
+  Check, 
+  Lock, 
+  CheckCircle2, 
+  Award,
+  ChevronLeft,
+  RotateCcw
+} from "lucide-react";
 
 interface Module {
   id: number;
@@ -77,13 +88,84 @@ const modules: Module[] = [
   },
 ];
 
+const STORAGE_KEY = "ergono_education_completed_steps";
+
 export default function TrainingProgramPage() {
-  const [activeId, setActiveId] = useState<number | null>(null);
-  const active = modules.find((m) => m.id === activeId) ?? null;
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [currentStepId, setCurrentStepId] = useState<number>(1);
+  const [showRewardToast, setShowRewardToast] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // بارگذاری داده‌ها از localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setCompletedSteps(parsed);
+          // پیدا کردن اولین مرحله باز که هنوز تمام نشده
+          const firstIncomplete = modules.find((m) => !parsed.includes(m.id));
+          if (firstIncomplete) {
+            setCurrentStepId(firstIncomplete.id);
+          } else {
+            setCurrentStepId(modules[modules.length - 1].id);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // ذخیره‌سازی پیشرفت در حافظه محلی
+  const saveProgress = (newCompleted: number[]) => {
+    setCompletedSteps(newCompleted);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newCompleted));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCompleteCurrent = (id: number) => {
+    if (!completedSteps.includes(id)) {
+      const nextCompleted = [...completedSteps, id];
+      saveProgress(nextCompleted);
+      
+      // نمایش پیام پاداش
+      setShowRewardToast(true);
+      setTimeout(() => setShowRewardToast(false), 2800);
+
+      // رفتن به مرحله بعدی اگر موجود باشد
+      if (id < modules.length) {
+        setCurrentStepId(id + 1);
+      }
+    } else {
+      // اگر قبلاً ثبت شده بود، فقط به بعدی هدایت شود
+      if (id < modules.length) {
+        setCurrentStepId(id + 1);
+      }
+    }
+  };
+
+  const handleResetProgress = () => {
+    if (confirm("آیا مایلید مسیر یادگیری بازنشانی شود؟")) {
+      saveProgress([]);
+      setCurrentStepId(1);
+    }
+  };
+
+  const currentModule = modules.find((m) => m.id === currentStepId) ?? modules[0];
+  const progressPercent = Math.round((completedSteps.length / modules.length) * 100);
+
+  if (!isLoaded) return null;
 
   return (
-    <div className="min-h-screen bg-[#eaf4f4] py-10 px-4 sm:px-6 lg:px-8 font-[Vazirmatn] text-slate-900">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-[#eaf4f4] py-8 sm:py-10 px-4 sm:px-6 lg:px-8 font-[Vazirmatn] text-slate-900">
+      <div className="max-w-4xl mx-auto">
+        
         {/* هدر صفحه */}
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#113a53] mb-3">
@@ -92,73 +174,198 @@ export default function TrainingProgramPage() {
 
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-100 text-teal-800 text-sm font-semibold mb-3 shadow-sm">
             <Sparkles className="w-4 h-4 text-teal-600" />
-            <span>مبتنی بر نظریه شناختی اجتماعی (SCT)</span>
+            <span>مسیر تعاملی نظریه شناختی اجتماعی (SCT)</span>
           </div>
 
-          <p className="text-slate-800 font-medium text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            این برنامه آموزشی بر اساس پنج سازه از نظریه شناختی اجتماعی Bandura طراحی شده تا به شما کمک کند عادت‌های ارگونومیک را به رفتار پایدار تبدیل کنید.
+          <p className="text-slate-800 font-medium text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+            گام‌به‌گام با ۵ سازه اصلی مسیر همراه شوید، تمرین‌های کوچک هر ایستگاه را ثبت کنید و نشان‌های پیشرفت خود را کامل نمایید.
           </p>
         </div>
 
-        {/* لیست کارت‌های ۵ گانه به صورت ۲ تایی در هر ردیف و وسط‌چین شدن مورد پنجم */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {modules.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setActiveId(item.id)}
-              className="w-full text-right bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-700/30 cursor-pointer flex flex-col justify-between md:last:col-span-2 md:last:max-w-xl md:last:mx-auto"
-            >
-              <div>
-                {/* بخش بالا: شمارنده و تگ سازه (راست‌چین) */}
-                <div className="flex items-center justify-start gap-2.5 mb-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-[#113a53] text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                    {item.id}
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#c8e6e8] text-[#113a53] text-xs font-bold">
-                    {item.constructFa}
-                  </span>
-                </div>
-
-                {/* عنوان و توضیح */}
-                <h2 className="text-base sm:text-lg font-bold text-[#113a53] mb-1.5 text-right">
-                  {item.title}
-                </h2>
-
-                <p className="text-slate-800 font-medium text-xs sm:text-sm leading-relaxed text-right mb-3">
-                  {item.description}
-                </p>
-              </div>
-
-              <div className="space-y-2 mt-auto w-full">
-                {/* کادر مثال عملی */}
-                <div className="bg-[#f0f7fc] border border-blue-100 rounded-xl p-3 text-right">
-                  <div className="flex items-center justify-start gap-1.5 text-[#1f4e79] font-bold text-xs mb-1">
-                    <BookOpen className="w-4 h-4 text-blue-600" />
-                    <span>مثال عملی</span>
-                  </div>
-                  <p className="text-slate-800 font-medium text-xs leading-relaxed">
-                    {item.example}
-                  </p>
-                </div>
-
-                {/* کادر تمرین کوچک */}
-                <div className="bg-[#effaf6] border border-emerald-100 rounded-xl p-3 text-right">
-                  <div className="flex items-center justify-start gap-1.5 text-emerald-800 font-bold text-xs mb-1">
-                    <Target className="w-4 h-4 text-emerald-600" />
-                    <span>تمرین کوچک</span>
-                  </div>
-                  <p className="text-slate-800 font-medium text-xs leading-relaxed">
-                    {item.exercise}
-                  </p>
-                </div>
-              </div>
-            </button>
-          ))}
+        {/* کادر نوار پیشرفت زنده */}
+        <div className="bg-white rounded-2xl p-5 mb-8 border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between mb-3 text-xs sm:text-sm font-bold text-[#113a53]">
+            <span className="flex items-center gap-1.5">
+              <Award className="w-4 h-4 text-amber-500" />
+              پیشرفت در مسیر یادگیری: {progressPercent}٪
+            </span>
+            <span className="text-slate-500 font-medium">
+              {completedSteps.length} از {modules.length} ایستگاه تکمیل شده
+            </span>
+          </div>
+          
+          {/* نوار اصلی */}
+          <div className="w-full bg-slate-100 rounded-full h-3.5 p-0.5 overflow-hidden border border-slate-200">
+            <div
+              className="bg-gradient-to-l from-emerald-500 to-[#1f4e79] h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
 
-        {/* دکمه‌های پایین صفحه */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+        {/* ایستگاه‌های مسیر (Journey Stepper) */}
+        <div className="bg-white rounded-3xl p-4 sm:p-6 mb-8 border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {modules.map((m, index) => {
+              const isCompleted = completedSteps.includes(m.id);
+              const isCurrent = currentStepId === m.id;
+              // مرحله باز است اگر مرحله جاری باشد، قبلاً کامل شده باشد، یا مرحله بلافاصله بعد از کامل‌شده‌ها باشد
+              const isUnlocked = isCompleted || isCurrent || m.id === 1 || completedSteps.includes(m.id - 1);
+
+              return (
+                <div key={m.id} className="flex items-center flex-1 min-w-[110px] last:flex-none">
+                  {/* دکمه ایستگاه */}
+                  <button
+                    type="button"
+                    disabled={!isUnlocked}
+                    onClick={() => setCurrentStepId(m.id)}
+                    className={`flex flex-col items-center gap-2 text-center transition-all w-full group ${
+                      !isUnlocked ? "opacity-45 cursor-not-allowed" : "cursor-pointer"
+                    }`}
+                  >
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm transition-all shadow-sm ${
+                        isCurrent
+                          ? "bg-[#113a53] text-white ring-4 ring-teal-200 scale-105"
+                          : isCompleted
+                          ? "bg-emerald-600 text-white"
+                          : isUnlocked
+                          ? "bg-slate-100 text-[#113a53] hover:bg-slate-200"
+                          : "bg-slate-100 text-slate-400 border border-dashed border-slate-300"
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <Check className="w-5 h-5 stroke-[2.5]" />
+                      ) : !isUnlocked ? (
+                        <Lock className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <span>{m.id}</span>
+                      )}
+                    </div>
+
+                    <span
+                      className={`text-xs font-bold transition-colors line-clamp-1 ${
+                        isCurrent
+                          ? "text-[#113a53]"
+                          : isCompleted
+                          ? "text-emerald-700"
+                          : "text-slate-600"
+                      }`}
+                    >
+                      {m.constructFa}
+                    </span>
+                  </button>
+
+                  {/* خط متصل‌کننده ایستگاه‌ها */}
+                  {index < modules.length - 1 && (
+                    <div
+                      className={`h-0.5 flex-1 mx-2 transition-colors ${
+                        completedSteps.includes(m.id) ? "bg-emerald-500" : "bg-slate-200"
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* کارت تعاملی ایستگاه فعال (Active Journey Station Card) */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md relative overflow-hidden text-right transition-all">
+          {/* نشان وضعیت در بالای کارت */}
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#113a53] text-white flex items-center justify-center font-extrabold text-sm shadow-sm">
+                {currentModule.id}
+              </div>
+              <span className="px-3 py-1 rounded-full bg-[#c8e6e8] text-[#113a53] text-xs font-bold">
+                {currentModule.constructFa} — {currentModule.constructEn}
+              </span>
+            </div>
+
+            {completedSteps.includes(currentModule.id) ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                <CheckCircle2 className="w-4 h-4" />
+                تکمیل شده
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                ایستگاه در حال اجرا
+              </span>
+            )}
+          </div>
+
+          {/* عنوان سازه */}
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#113a53] mb-4">
+            {currentModule.title}
+          </h2>
+
+          {/* محتوا و بخش‌های آموزشی */}
+          <div className="space-y-4 mb-6">
+            {/* توضیح */}
+            <div className="rounded-2xl bg-[#eaf4f4] border border-slate-200/60 p-4 sm:p-5">
+              <h3 className="font-extrabold text-slate-900 text-sm mb-1.5">مفهوم کلیدی</h3>
+              <p className="text-slate-800 text-sm sm:text-base leading-7 font-medium">
+                {currentModule.description}
+              </p>
+            </div>
+
+            {/* مثال عملی */}
+            <div className="rounded-2xl bg-[#f0f7fc] border border-blue-100 p-4 sm:p-5">
+              <div className="flex items-center gap-2 text-[#1f4e79] font-extrabold text-sm mb-1.5">
+                <BookOpen className="w-4 h-4 text-blue-600" />
+                <span>نمونه کاربردی</span>
+              </div>
+              <p className="text-slate-800 text-xs sm:text-sm leading-6 font-medium">
+                {currentModule.example}
+              </p>
+            </div>
+
+            {/* تمرین تعاملی */}
+            <div className="rounded-2xl bg-[#effaf6] border border-emerald-200 p-4 sm:p-5">
+              <div className="flex items-center gap-2 text-emerald-800 font-extrabold text-sm mb-1.5">
+                <Target className="w-4 h-4 text-emerald-600" />
+                <span>تمرین کوچک برای قفل‌شکنی مرحله بعد</span>
+              </div>
+              <p className="text-slate-800 text-xs sm:text-sm leading-6 font-medium">
+                {currentModule.exercise}
+              </p>
+            </div>
+          </div>
+
+          {/* دکمه اقدام و ثبت مرحله */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => handleCompleteCurrent(currentModule.id)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm text-sm cursor-pointer"
+            >
+              <Check className="w-4 h-4 stroke-[3]" />
+              <span>
+                {completedSteps.includes(currentModule.id)
+                  ? currentModule.id < modules.length
+                    ? "برو به گام بعدی"
+                    : "پایان مسیر یادگیری"
+                  : "انجام دادم و ثبت گام بعدی (+۱۰ امتیاز)"}
+              </span>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {completedSteps.length > 0 && (
+              <button
+                type="button"
+                onClick={handleResetProgress}
+                className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 font-medium cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                شروع مجدد مسیر
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* دکمه‌های ناوبری عمومی پایین صفحه */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/checklist"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl bg-[#1f4e79] text-white font-bold hover:bg-[#163857] transition shadow-sm text-sm"
@@ -170,79 +377,20 @@ export default function TrainingProgramPage() {
             href="/principles"
             className="w-full sm:w-auto inline-flex items-center justify-center px-7 py-3 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition text-sm"
           >
-            مشاهده اصول 13 گانه
+            مشاهده اصول ۱۳ گانه
           </Link>
         </div>
       </div>
 
-      {/* مودال تعاملی: بزرگ‌تر شدن اندازه کادر پیش‌رو */}
-      {active && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 sm:py-10"
-          role="dialog"
-          aria-modal="true"
-          aria-label="جزئیات سازه آموزشی"
-          onClick={() => setActiveId(null)}
-        >
-          {/* پس‌زمینه تار */}
-          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" />
-
-          {/* کادر بزرگ‌شده مودال */}
-          <div
-            className="relative w-full max-w-3xl rounded-3xl bg-white shadow-2xl border border-slate-200/80 p-6 sm:p-8 text-right z-10 transform transition-all scale-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setActiveId(null)}
-              className="absolute left-4 sm:left-6 top-4 sm:top-6 inline-flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
-              aria-label="بستن"
-            >
-              <X className="h-5 w-5 text-slate-700" />
-            </button>
-
-            {/* هدر مودال */}
-            <div className="flex items-center justify-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-[#113a53] text-white flex items-center justify-center font-black text-sm shadow-sm">
-                {active.id}
-              </div>
-              <div className="px-3.5 py-1 rounded-full bg-[#c8e6e8] text-[#113a53] text-sm font-bold">
-                {active.constructFa} — {active.constructEn}
-              </div>
-            </div>
-
-            <h2 className="text-xl sm:text-2xl font-black text-[#113a53] mb-4 text-right">
-              {active.title}
-            </h2>
-
-            <div className="space-y-4">
-              <section className="rounded-2xl bg-[#eaf4f4] border border-slate-200/60 p-4 sm:p-5">
-                <h3 className="font-extrabold text-slate-900 text-base mb-1.5">توضیحات سازه</h3>
-                <p className="text-slate-800 text-sm sm:text-base leading-7 sm:leading-8 font-medium">
-                  {active.description}
-                </p>
-              </section>
-
-              <section className="rounded-2xl bg-[#f0f7fc] border border-blue-100 p-4 sm:p-5">
-                <h3 className="font-extrabold text-[#1f4e79] text-base mb-1.5 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-blue-600" />
-                  <span>مثال عملی</span>
-                </h3>
-                <p className="text-slate-800 text-sm sm:text-base leading-7 sm:leading-8 font-medium">
-                  {active.example}
-                </p>
-              </section>
-
-              <section className="rounded-2xl bg-[#effaf6] border border-emerald-100 p-4 sm:p-5">
-                <h3 className="font-extrabold text-emerald-800 text-base mb-1.5 flex items-center gap-2">
-                  <Target className="w-5 h-5 text-emerald-600" />
-                  <span>تمرین کوچک</span>
-                </h3>
-                <p className="text-slate-800 text-sm sm:text-base leading-7 sm:leading-8 font-medium">
-                  {active.exercise}
-                </p>
-              </section>
-            </div>
+      {/* پیام پاپ‌آپ پاداش (Toast Notification) */}
+      {showRewardToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#113a53] text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 border border-teal-500/30 animate-bounce">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Award className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-teal-300">آفرین!</p>
+            <p className="text-xs font-semibold">ایستگاه تکمیل شد (+۱۰ امتیاز ارگونو)</p>
           </div>
         </div>
       )}

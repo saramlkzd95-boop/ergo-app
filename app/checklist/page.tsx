@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Check,
   Activity,
+  Lock,
 } from "lucide-react";
 
 interface ChecklistItem {
@@ -17,7 +18,7 @@ interface ChecklistItem {
   subtitle: string;
 }
 
-// لیست آیتم‌های محاسباتی ارگونومی (آیتم کشش گردن حذف شده است)
+// لیست آیتم‌های محاسباتی ارگونومی
 const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
     id: "setup_workstation",
@@ -37,7 +38,7 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   {
     id: "chin_tuck",
     title: "انجام تمرینات اصلاحی",
-    subtitle: "انجام روزانه تمرینات، 2 نوبت در روز.",
+    subtitle: "انجام روزانه تمرینات (حداقل ۵ تمرین در روز).",
   },
   {
     id: "shoulder_squeeze",
@@ -56,14 +57,12 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
   },
 ];
 
-// گزینه‌های خودپایشی خستگی/درد عضلانی (بدون تاثیر در درصد پیشرفت)
 const DISCOMFORT_OPTIONS = [
   { id: "comfortable", label: "احساس راحتی", color: "text-emerald-700 bg-emerald-50 border-emerald-300" },
   { id: "mild_pain", label: "درد خفیف", color: "text-amber-700 bg-amber-50 border-amber-300" },
   { id: "fatigue_cramp", label: "خستگی یا گرفتگی", color: "text-rose-700 bg-rose-50 border-rose-300" },
 ];
 
-// نگاشت روزهای هفته
 const JS_DAY_TO_IRAN_DAY_INDEX: Record<number, number> = {
   6: 0, // شنبه
   0: 1, // یکشنبه
@@ -89,6 +88,7 @@ export default function ChecklistPage() {
   const [discomfortLevel, setDiscomfortLevel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [exerciseCount, setExerciseCount] = useState<number>(0);
 
   const [weekDaysProgress, setWeekDaysProgress] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [streakDays, setStreakDays] = useState<number>(0);
@@ -108,12 +108,43 @@ export default function ChecklistPage() {
     return JS_DAY_TO_IRAN_DAY_INDEX[jsDay] ?? 0;
   }, []);
 
-  // محاسبه درصد پیشرفت صرفاً بر مبنای آیتم‌های اصلی ارگونومی
+  // بررسی وضعیت تکمیل تمرین‌های اصلاحی از localStorage
+  useEffect(() => {
+    try {
+      const storedProgress = localStorage.getItem("ergono-corrective-exercises-progress");
+      if (storedProgress) {
+        const parsed = JSON.parse(storedProgress);
+        // فرض بر این است که پروگرس ذخیره‌شده شامل آرایه‌ای برای امروز یا لیستی از انجام‌شده‌هاست
+        // ساختار رایج: آرایه ایندکس‌ها یا تاریخ‌دار
+        let count = 0;
+        if (Array.isArray(parsed)) {
+          count = parsed.length;
+        } else if (typeof parsed === "object" && parsed !== null) {
+          // اگر بر اساس تاریخ ذخیره شده باشد
+          const todayExercises = parsed[todayStr] || [];
+          count = Array.isArray(todayExercises) ? todayExercises.length : 0;
+        }
+        setExerciseCount(count);
+
+        // اگر تعداد تمرین‌ها ۵ یا بیشتر بود، آیتم chin_tuck را به‌طور خودکار فعال کن
+        if (count >= 5) {
+          setCompletedItems((prev) => {
+            if (!prev.includes("chin_tuck")) {
+              return [...prev, "chin_tuck"];
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("خطا در خواندن پیشرفت تمرین‌ها:", e);
+    }
+  }, [todayStr]);
+
   const currentPercentage = useMemo(() => {
     return Math.round((completedItems.length / CHECKLIST_ITEMS.length) * 100);
   }, [completedItems]);
 
-  // ۱. بارگذاری داده‌ها از دیتابیس یا LocalStorage
   useEffect(() => {
     async function loadUserData() {
       setLoading(true);
@@ -129,8 +160,11 @@ export default function ChecklistPage() {
 
           if (localData) {
             const parsed: string[] = JSON.parse(localData);
-            setCompletedItems(parsed);
-            const pct = Math.round((parsed.length / CHECKLIST_ITEMS.length) * 100);
+            // اطمینان از لحاظ شدن شرط تمرین‌ها
+            const finalCompleted = Array.from(new Set([...parsed, ...(exerciseCount >= 5 ? ["chin_tuck"] : [])]));
+            setCompletedItems(finalCompleted);
+
+            const pct = Math.round((finalCompleted.length / CHECKLIST_ITEMS.length) * 100);
             setWeekDaysProgress((prev) => {
               const copy = [...prev];
               copy[currentIranDayIndex] = pct;
@@ -143,7 +177,6 @@ export default function ChecklistPage() {
 
         setUserId(user.id);
 
-        // دریافت وضعیت امروز
         const { data: todayRecord } = await supabase
           .from("checklist_progress")
           .select("*")
@@ -152,9 +185,15 @@ export default function ChecklistPage() {
           .maybeSingle();
 
         let todayPct = 0;
+        let items: string[] = [];
+
         if (todayRecord) {
-          const items = Array.isArray(todayRecord.completed_items) ? todayRecord.completed_items : [];
+          items = Array.isArray(todayRecord.completed_items) ? todayRecord.completed_items : [];
+          if (exerciseCount >= 5 && !items.includes("chin_tuck")) {
+            items.push("chin_tuck");
+          }
           setCompletedItems(items);
+
           if (todayRecord.discomfort_level) {
             setDiscomfortLevel(todayRecord.discomfort_level);
           }
@@ -167,13 +206,15 @@ export default function ChecklistPage() {
           const localDiscomfort = localStorage.getItem(`discomfort_${todayStr}`);
           if (localDiscomfort) setDiscomfortLevel(localDiscomfort);
           if (localData) {
-            const parsed: string[] = JSON.parse(localData);
-            setCompletedItems(parsed);
-            todayPct = Math.round((parsed.length / CHECKLIST_ITEMS.length) * 100);
+            items = JSON.parse(localData);
           }
+          if (exerciseCount >= 5 && !items.includes("chin_tuck")) {
+            items.push("chin_tuck");
+          }
+          setCompletedItems(items);
+          todayPct = Math.round((items.length / CHECKLIST_ITEMS.length) * 100);
         }
 
-        // دریافت تاریخچه ۳۰ روز گذشته
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 30);
         const startStr = startDate.toISOString().split("T")[0];
@@ -200,7 +241,6 @@ export default function ChecklistPage() {
             }
           });
 
-          // محاسبه زنجیره روزهای متوالی
           let streak = 0;
           const checkDate = new Date();
           while (true) {
@@ -227,10 +267,14 @@ export default function ChecklistPage() {
     }
 
     loadUserData();
-  }, [todayStr, currentIranDayIndex]);
+  }, [todayStr, currentIranDayIndex, exerciseCount]);
 
-  // ۲. ثبت یا تغییر چک‌باکس‌های روزانه
   const toggleItem = async (itemId: string) => {
+    // اگر آیتم مربوط به تمرینات اصلاحی بود و شرط ۵ تمرین برقرار بود، اجازه تغییر دستی ندهیم
+    if (itemId === "chin_tuck" && exerciseCount >= 5) {
+      return; 
+    }
+
     const updated = completedItems.includes(itemId)
       ? completedItems.filter((id) => id !== itemId)
       : [...completedItems, itemId];
@@ -248,7 +292,7 @@ export default function ChecklistPage() {
 
     if (userId) {
       try {
-        const { error } = await supabase.from("checklist_progress").upsert(
+        await supabase.from("checklist_progress").upsert(
           {
             user_id: userId,
             date: todayStr,
@@ -259,15 +303,12 @@ export default function ChecklistPage() {
           },
           { onConflict: "user_id,date" }
         );
-
-        if (error) console.error("خطا در ذخیره وضعیت چک‌لیست:", error.message);
       } catch (err) {
         console.error("خطا در ذخیره وضعیت چک‌لیست:", err);
       }
     }
   };
 
-  // ۳. ثبت سطح درد یا خستگی پایان روز (مستقل از نمودار و بدون تغییر در درصد)
   const handleDiscomfortSelect = async (selectedLevel: string) => {
     const newLevel = discomfortLevel === selectedLevel ? null : selectedLevel;
     setDiscomfortLevel(newLevel);
@@ -280,7 +321,7 @@ export default function ChecklistPage() {
 
     if (userId) {
       try {
-        const { error } = await supabase.from("checklist_progress").upsert(
+        await supabase.from("checklist_progress").upsert(
           {
             user_id: userId,
             date: todayStr,
@@ -291,8 +332,6 @@ export default function ChecklistPage() {
           },
           { onConflict: "user_id,date" }
         );
-
-        if (error) console.error("خطا در ثبت وضعیت خستگی/درد:", error.message);
       } catch (err) {
         console.error("خطا در ثبت وضعیت خستگی/درد:", err);
       }
@@ -316,7 +355,7 @@ export default function ChecklistPage() {
             چک‌لیست روزانه من
           </h1>
           <p className="text-slate-800 text-xs sm:text-sm font-semibold">
-            امروز: {todayPersianDate}
+            امروز: {todayPersianDate} ({exerciseCount} تمرین اصلاحی انجام شده)
           </p>
         </div>
 
@@ -391,27 +430,40 @@ export default function ChecklistPage() {
         <div className="space-y-3">
           {CHECKLIST_ITEMS.map((item) => {
             const isChecked = completedItems.includes(item.id);
+            const isAutoCompletedExercise = item.id === "chin_tuck" && exerciseCount >= 5;
+
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => toggleItem(item.id)}
-                className={`w-full text-right p-3.5 sm:p-5 rounded-2xl border transition-all flex items-start sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer ${
+                disabled={isAutoCompletedExercise}
+                className={`w-full text-right p-3.5 sm:p-5 rounded-2xl border transition-all flex items-start sm:items-center justify-between gap-3 sm:gap-4 ${
+                  isAutoCompletedExercise ? "cursor-not-allowed bg-teal-50/60 border-teal-300" : "cursor-pointer"
+                } ${
                   isChecked
                     ? "bg-[#eef7f6] border-teal-300 shadow-sm"
                     : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
                 }`}
               >
                 <div className="space-y-1 flex-1 min-w-0">
-                  <h3
-                    className={`font-bold text-sm sm:text-base md:text-lg leading-snug ${
-                      isChecked ? "text-teal-900 line-through decoration-teal-500/50" : "text-[#113a53]"
-                    }`}
-                  >
-                    {item.title}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3
+                      className={`font-bold text-sm sm:text-base md:text-lg leading-snug ${
+                        isChecked ? "text-teal-900 line-through decoration-teal-500/50" : "text-[#113a53]"
+                      }`}
+                    >
+                      {item.title}
+                    </h3>
+                    {isAutoCompletedExercise && (
+                      <span className="inline-flex items-center gap-1 bg-teal-200 text-teal-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                        <Lock className="w-3 h-3" /> خودکار (تکمیل ۵ تمرین)
+                      </span>
+                    )}
+                  </div>
                   <p className="text-slate-800 text-xs sm:text-sm font-medium leading-relaxed">
                     {item.subtitle}
+                    {item.id === "chin_tuck" && ` (امروز: ${exerciseCount} از ۵ تمرین)`}
                   </p>
                 </div>
 
@@ -446,7 +498,6 @@ export default function ChecklistPage() {
               </div>
             </div>
 
-            {/* گزینه‌های سه‌گانه انتخابی */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 pt-1">
               {DISCOMFORT_OPTIONS.map((option) => {
                 const isSelected = discomfortLevel === option.id;
