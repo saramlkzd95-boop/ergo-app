@@ -1,8 +1,9 @@
 export interface ExerciseSide {
-  side: 'right' | 'left';
+  side: "right" | "left";
   label: string;
-  duration: number; // 15 seconds per side
-  image: string;    // path to PNG
+  duration: number; // مدت هر سمت، برای تمرین‌های دوطرفه
+  image: string; // مسیر تصویر PNG
+  animationUrl?: string; // ویدئوی مخصوص یک سمت، در صورت وجود
 }
 
 export interface Exercise {
@@ -14,10 +15,10 @@ export interface Exercise {
   breathing: string;
   result: string;
   caution?: string;
-  animationUrl?: string; // Optional for video exercises
-  isBilateral?: boolean; // True for two-sided exercises
-  sides?: ExerciseSide[]; // Sides configuration
-  duration?: number;
+  animationUrl?: string; // ویدئوی تمرین، در صورت وجود
+  isBilateral?: boolean; // آیا تمرین دو مرحلهٔ جداگانه دارد؟
+  sides?: ExerciseSide[]; // تنظیمات سمت‌ها، برای تمرین‌های دوطرفه
+  duration?: number; // مدت کل تمرین
 }
 
 export const EXERCISES_DATA: Exercise[] = [
@@ -34,27 +35,29 @@ export const EXERCISES_DATA: Exercise[] = [
     duration: 30,
     isBilateral: true,
     sides: [
-      { side: 'right', label: 'سمت راست', duration: 15, image: '' },
-      { side: 'left', label: 'سمت چپ', duration: 15, image: '' }
+      { side: "right", label: "سمت راست", duration: 15, image: "" },
+      {
+        side: "left",
+        label: "سمت چپ",
+        duration: 15,
+        image: "",
+        animationUrl: "/animations/traps-stretch-left-h264.mp4",
+      },
     ],
-    animationUrl: "/animations/traps-stretch-bilateral-h264.mp4"
+    animationUrl: "/animations/traps-stretch-bilateral-h264.mp4",
   },
   {
     id: "neck-rotation",
     title: "چرخش سر به طرفین",
     titleEn: "Traps Stretch Variation Two",
     position: "ایستاده یا نشسته",
-    instruction: "صاف بایستید یا بنشینید. قفسه سینه را ثابت نگه دارید، سر را ۹۰ درجه به سمت راست بچرخانید، به مرکز بازگردید و سپس به سمت چپ تکرار کنید.",
+    instruction: "صاف بایستید یا بنشینید. قفسه سینه را ثابت نگه دارید، سر را به‌آرامی به سمت راست بچرخانید، به مرکز بازگردانید و سپس به سمت چپ تکرار کنید.",
     breathing: "تنفس طبیعی، آرام و منظم داشته باشید.",
     result: "افزایش دامنه حرکتی چرخش گردن و کاهش سفتی عضلانی.",
     caution: "حرکت باید کاملاً کنترل‌شده و بدون چرخش سریع انجام شود.",
-    duration: 30,
-    isBilateral: true,
-    sides: [
-      { side: 'right', label: 'سمت راست', duration: 15, image: '' },
-      { side: 'left', label: 'سمت چپ', duration: 15, image: '' }
-    ],
-    animationUrl: "/animations/neck-rotation-h264.mp4"
+    duration: 20,
+    isBilateral: false,
+    animationUrl: "/animations/neck-rotation-h264.mp4",
   },
   {
     id: "neck-upper-back-stretch",
@@ -67,7 +70,7 @@ export const EXERCISES_DATA: Exercise[] = [
     caution: "شانه ها را بالا نکشید و پشت را خم نکنید.",
     duration: 30,
     isBilateral: false,
-    animationUrl: "/animations/neck-upper-back-stretch-h264.mp4"
+    animationUrl: "/animations/neck-upper-back-stretch-h264.mp4",
   },
   {
     id: "forearms-stretch",
@@ -80,7 +83,7 @@ export const EXERCISES_DATA: Exercise[] = [
     caution: "به مچ دست فشار بیش از حد و ناگهانی وارد نکنید.",
     duration: 30,
     isBilateral: false,
-    animationUrl: "/animations/forearms-stretch-h264.mp4"
+    animationUrl: "/animations/forearms-stretch-h264.mp4",
   },
   {
     id: "chest-stretch-clasp",
@@ -93,7 +96,7 @@ export const EXERCISES_DATA: Exercise[] = [
     caution: "سر را صاف نگه دارید و کمر را بیش‌ازحد قوس ندهید.",
     duration: 30,
     isBilateral: false,
-    animationUrl: "/animations/chest-stretch-clasp-h264.mp4"
+    animationUrl: "/animations/chest-stretch-clasp-h264.mp4",
   },
   {
     id: "chest-stretch-extended",
@@ -106,7 +109,7 @@ export const EXERCISES_DATA: Exercise[] = [
     caution: "شانه‌ها را منقبض و بالا نگه ندارید.",
     duration: 30,
     isBilateral: false,
-    animationUrl: "/animations/chest-stretch-extended-h264.mp4"
+    animationUrl: "/animations/chest-stretch-extended-h264.mp4",
   },
 
   // --- حرکات ویدیویی قبلی ---

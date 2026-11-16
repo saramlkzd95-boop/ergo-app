@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import {
   ResponsiveContainer,
@@ -12,15 +18,24 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
-import { EXERCISES_DATA, Exercise } from "@/data/exercises";
+import { EXERCISES_DATA, type Exercise } from "@/data/exercises";
 
 const DEFAULT_SIDE_DURATION = 15;
+const SINGLE_CLIP_EXERCISE_ID = "neck-rotation";
+const SINGLE_CLIP_DURATION = 20;
 const PROGRESS_KEY = "ergono-corrective-exercises-progress";
-const DAY_MS = 24 * 60 * 60 * 1000;
 
-// دریافت نام روز هفته به فارسی
-const getPersianDayName = (date: Date) => {
-  const dayIndex = date.getDay();
+type ExerciseProgress = Record<string, string[]>;
+
+type WeekDay = {
+  key: string;
+  label: string;
+  isToday: boolean;
+  isFuture: boolean;
+};
+
+const getPersianDayName = (date: Date): string => {
+  // اندیس‌ها مطابق Date.getDay هستند: یکشنبه = ۰، شنبه = ۶
   const days = [
     "یکشنبه",
     "دوشنبه",
@@ -30,314 +45,533 @@ const getPersianDayName = (date: Date) => {
     "جمعه",
     "شنبه",
   ];
-  return days[dayIndex];
+
+  return days[date.getDay()];
 };
 
-const getLocalDateKey = (date: Date) => {
+const getLocalDateKey = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 };
 
-type ExerciseProgress = Record<string, number[]>;
+const createSeededRandom = (seed: string): (() => number) => {
+  let state = 2166136261;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    state ^= seed.charCodeAt(index);
+    state = Math.imul(state, 16777619);
+  }
+
+  return () => {
+    state += 0x6d2b79f5;
+
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const shuffleExercisesForDay = (dateKey: string): Exercise[] => {
+  const shuffled = [...EXERCISES_DATA];
+  const random = createSeededRandom(dateKey);
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(random() * (index + 1));
+
+    [shuffled[index], shuffled[randomIndex]] = [
+      shuffled[randomIndex],
+      shuffled[index],
+    ];
+  }
+
+  return shuffled;
+};
+
+const isExerciseBilateral = (exercise?: Exercise): boolean =>
+  Boolean(
+    exercise &&
+      exercise.id !== SINGLE_CLIP_EXERCISE_ID &&
+      exercise.isBilateral &&
+      exercise.sides &&
+      exercise.sides.length > 1
+  );
+
+const getExerciseDuration = (
+  exercise?: Exercise,
+  sideIndex = 0
+): number => {
+  if (!exercise) return DEFAULT_SIDE_DURATION;
+
+  if (exercise.id === SINGLE_CLIP_EXERCISE_ID) {
+    return SINGLE_CLIP_DURATION;
+  }
+
+  if (isExerciseBilateral(exercise)) {
+    return exercise.sides?.[sideIndex]?.duration ?? DEFAULT_SIDE_DURATION;
+  }
+
+  return DEFAULT_SIDE_DURATION;
+};
+
+// شناسه‌های جدید حفظ می‌شوند؛ اندیس‌های ذخیره‌شده در نسخهٔ قدیمی
+// با استفاده از ترتیب اصلی EXERCISES_DATA به شناسه تبدیل می‌شوند.
+const normalizeCompletedExercises = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  const validIds = new Set(
+    EXERCISES_DATA.map((exercise) => exercise.id)
+  );
+  const normalized = new Set<string>();
+
+  for (const item of value) {
+    if (typeof item === "string" && validIds.has(item)) {
+      normalized.add(item);
+      continue;
+    }
+
+    if (
+      typeof item === "number" &&
+      Number.isInteger(item) &&
+      item >= 0 &&
+      item < EXERCISES_DATA.length
+    ) {
+      normalized.add(EXERCISES_DATA[item].id);
+    }
+  }
+
+  return [...normalized];
+};
 
 const loadExerciseProgress = (): ExerciseProgress => {
-  if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(PROGRESS_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as ExerciseProgress;
-    return parsed && typeof parsed === "object" ? parsed : {};
+
+    const parsed: unknown = JSON.parse(raw);
+
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
+      return {};
+    }
+
+    const progress: ExerciseProgress = {};
+
+    for (const [dateKey, completed] of Object.entries(parsed)) {
+      progress[dateKey] = normalizeCompletedExercises(completed);
+    }
+
+    return progress;
   } catch {
     return {};
   }
 };
 
-const saveExerciseProgress = (progress: ExerciseProgress) => {
-  if (typeof window === "undefined") return;
+const saveExerciseProgress = (progress: ExerciseProgress): void => {
   try {
-    window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    window.localStorage.setItem(
+      PROGRESS_KEY,
+      JSON.stringify(progress)
+    );
   } catch {
-    // نادیده گرفتن خطا
+    // در صورت غیرفعال بودن ذخیره‌سازی مرورگر، صفحه همچنان کار می‌کند.
   }
 };
 
+const buildWeekDays = (currentDate: Date): WeekDay[] => {
+  const today = new Date(currentDate);
+  today.setHours(0, 0, 0, 0);
+
+  const startOfWeek = new Date(today);
+  const daysSinceSaturday = (today.getDay() + 1) % 7;
+  startOfWeek.setDate(today.getDate() - daysSinceSaturday);
+
+  return Array.from({ length: 7 }, (_, dayIndex) => {
+    const targetDate = new Date(startOfWeek);
+    targetDate.setDate(startOfWeek.getDate() + dayIndex);
+
+    const isToday = targetDate.getTime() === today.getTime();
+    const dayName = getPersianDayName(targetDate);
+
+    return {
+      key: getLocalDateKey(targetDate),
+      label: isToday ? `${dayName} (امروز)` : dayName,
+      isToday,
+      isFuture: targetDate.getTime() > today.getTime(),
+    };
+  });
+};
+
 export default function ExercisesPage() {
+  const [todayKey, setTodayKey] = useState("");
+  const [orderedExercises, setOrderedExercises] = useState<Exercise[]>([]);
+  const [weekDays, setWeekDays] = useState<WeekDay[]>([]);
+  const [pastProgress, setPastProgress] = useState<ExerciseProgress>({});
+  const [isLoaded, setIsLoaded] = useState(false);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentSideIndex, setCurrentSideIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_SIDE_DURATION);
   const [isRunning, setIsRunning] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-
-  // تمرین‌های تکمیل‌شده امروز
-  const [completedExercises, setCompletedExercises] = useState<number[]>([]);
-
-  // کل تاریخچه پیشرفت روزها
-  const [pastProgress, setPastProgress] = useState<ExerciseProgress>({});
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // نمایش پنجره تشویقی
   const [showEncouragement, setShowEncouragement] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const currentExercise: Exercise | undefined = EXERCISES_DATA[currentIndex];
-  const totalExercises = EXERCISES_DATA.length;
-  const completedCount = completedExercises.length;
-
-  // آیا تمرین فعلی دوطرفه است؟
-  const isBilateral = Boolean(
-    currentExercise?.isBilateral &&
-      currentExercise?.sides &&
-      currentExercise.sides.length > 1
+  const todayKeyRef = useRef("");
+  const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
   );
 
-  const totalSides = isBilateral ? currentExercise!.sides!.length : 1;
+  const currentExercise = orderedExercises[currentIndex];
+  const totalExercises = EXERCISES_DATA.length;
+
+  const completedExercises = pastProgress[todayKey] ?? [];
+  const completedCount = completedExercises.length;
+
+  const isBilateral = isExerciseBilateral(currentExercise);
+  const totalSides = isBilateral
+    ? currentExercise?.sides?.length ?? 1
+    : 1;
+
   const currentSide = isBilateral
-    ? currentExercise!.sides![currentSideIndex]
-    : null;
+    ? currentExercise?.sides?.[currentSideIndex]
+    : undefined;
 
-  // مدت زمان مرحله جاری
-  const currentDuration = currentSide?.duration || DEFAULT_SIDE_DURATION;
+  // این حرکت یک کلیپ واحد دارد، حتی اگر sides در داده‌ها تعریف شده باشد.
+  const currentAnimationUrl =
+    currentExercise?.id === SINGLE_CLIP_EXERCISE_ID
+      ? currentExercise.animationUrl ??
+        currentExercise.sides?.[0]?.animationUrl
+      : currentSide?.animationUrl ??
+        currentExercise?.animationUrl;
 
-  // صدای تغییر سمت حرکت (چپ/راست) با Web Audio API
-  const playSideSwitchSound = useCallback(() => {
-    if (isMuted) return;
-    try {
-      const AudioContextClass =
-        (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
+  const currentDuration = getExerciseDuration(
+    currentExercise,
+    currentSideIndex
+  );
 
-      const ctx = new AudioContextClass();
-      const notes = [440, 659.25];
+  const completionPercent =
+    totalExercises > 0
+      ? Math.round((completedCount / totalExercises) * 100)
+      : 0;
 
-      notes.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
-
-        gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.12);
-        gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + idx * 0.12 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(
-          0.001,
-          ctx.currentTime + idx * 0.12 + 0.25
-        );
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(ctx.currentTime + idx * 0.12);
-        osc.stop(ctx.currentTime + idx * 0.12 + 0.26);
-      });
-    } catch {
-      // نادیده گرفتن خطا
-    }
-  }, [isMuted]);
-
-  // پخش صدای تشویق و موفقیت نهایی
-  const playCelebrationSound = useCallback(() => {
-    if (isMuted) return;
-
-    try {
-      const AudioContextClass =
-        (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-
-      const ctx = new AudioContextClass();
-      const notes = [523.25, 659.25, 783.99, 1046.5];
-
-      notes.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.1);
-
-        gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.1);
-        gain.gain.linearRampToValueAtTime(
-          0.2,
-          ctx.currentTime + idx * 0.1 + 0.02
-        );
-        gain.gain.exponentialRampToValueAtTime(
-          0.001,
-          ctx.currentTime + idx * 0.1 + 0.3
-        );
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(ctx.currentTime + idx * 0.1);
-        osc.stop(ctx.currentTime + idx * 0.1 + 0.35);
-      });
-    } catch {
-      // نادیده گرفتن خطا
-    }
-  }, [isMuted]);
-
-  const completionPercent = useMemo(() => {
-    if (!totalExercises) return 0;
-    return Math.round((completedCount / totalExercises) * 100);
-  }, [completedCount, totalExercises]);
-
-  useEffect(() => {
-    const progress = loadExerciseProgress();
-    const todayKey = getLocalDateKey(new Date());
-
-    setPastProgress(progress);
-    if (Array.isArray(progress[todayKey])) {
-      setCompletedExercises(progress[todayKey]);
-    }
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    const todayKey = getLocalDateKey(new Date());
-    const progress = loadExerciseProgress();
-
-    progress[todayKey] = completedExercises;
-
-    const cutoff = Date.now() - 14 * DAY_MS;
-    Object.keys(progress).forEach((key) => {
-      const keyDate = new Date(`${key}T00:00:00`).getTime();
-      if (!Number.isNaN(keyDate) && keyDate < cutoff) {
-        delete progress[key];
-      }
-    });
-
-    saveExerciseProgress(progress);
-    setPastProgress({ ...progress });
-  }, [completedExercises, isLoaded]);
-
-  const weeklyChartData = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const data = [];
-    for (let offset = 6; offset >= 0; offset -= 1) {
-      const targetDate = new Date(today.getTime() - offset * DAY_MS);
-      const key = getLocalDateKey(targetDate);
-      const isToday = offset === 0;
-
-      let percent = 0;
-      if (isToday) {
-        percent = completionPercent;
-      } else {
-        const pastList = Array.isArray(pastProgress[key])
-          ? pastProgress[key]
-          : [];
-        percent =
-          totalExercises > 0
-            ? Math.round((pastList.length / totalExercises) * 100)
-            : 0;
-      }
-
-      data.push({
-        key,
-        label: isToday ? "امروز" : getPersianDayName(targetDate),
-        percent: Math.min(100, Math.max(0, percent)),
-        isToday,
-      });
-    }
-
-    return data;
-  }, [completionPercent, pastProgress, totalExercises]);
-
-  const clearAutoNextTimeout = () => {
-    if (autoNextTimeoutRef.current) {
+  const clearAutoNextTimeout = useCallback(() => {
+    if (autoNextTimeoutRef.current !== null) {
       clearTimeout(autoNextTimeoutRef.current);
       autoNextTimeoutRef.current = null;
     }
-  };
+  }, []);
 
-  const toggleExerciseCompleted = (exerciseIndex: number) => {
-    setCompletedExercises((prev) => {
-      let updated: number[];
-      if (prev.includes(exerciseIndex)) {
-        updated = prev.filter((idx) => idx !== exerciseIndex);
-      } else {
-        updated = [...prev, exerciseIndex];
-        if (updated.length === totalExercises && totalExercises > 0) {
-          setShowEncouragement(true);
-          playCelebrationSound();
-        }
+  const playNotes = useCallback(
+    (
+      notes: number[],
+      spacing: number,
+      noteDuration: number
+    ) => {
+      if (isMuted) return;
+
+      try {
+        const audioWindow = window as Window & {
+          webkitAudioContext?: typeof AudioContext;
+        };
+
+        const AudioContextClass =
+          window.AudioContext ?? audioWindow.webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        const context = new AudioContextClass();
+
+        notes.forEach((frequency, index) => {
+          const start = context.currentTime + index * spacing;
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(frequency, start);
+
+          gain.gain.setValueAtTime(0.001, start);
+          gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(
+            0.001,
+            start + noteDuration
+          );
+
+          oscillator.connect(gain);
+          gain.connect(context.destination);
+
+          oscillator.start(start);
+          oscillator.stop(start + noteDuration + 0.01);
+        });
+
+        window.setTimeout(() => {
+          void context.close().catch(() => {});
+        }, Math.ceil((notes.length * spacing + noteDuration + 0.5) * 1000));
+      } catch {
+        // پشتیبانی‌نشدن صدا مانع انجام تمرین نمی‌شود.
       }
-      return updated;
+    },
+    [isMuted]
+  );
+
+  const playSideSwitchSound = useCallback(() => {
+    playNotes([440, 659.25], 0.12, 0.25);
+  }, [playNotes]);
+
+  const playCelebrationSound = useCallback(() => {
+    playNotes([523.25, 659.25, 783.99, 1046.5], 0.1, 0.3);
+  }, [playNotes]);
+
+  // تاریخ، ترتیب تمرین‌ها و پیشرفت فقط پس از اجرای صفحه در مرورگر خوانده می‌شوند.
+  useEffect(() => {
+    const updateDay = () => {
+      const now = new Date();
+      const newKey = getLocalDateKey(now);
+
+      if (todayKeyRef.current === newKey) return;
+
+      todayKeyRef.current = newKey;
+      clearAutoNextTimeout();
+
+      const exercises = shuffleExercisesForDay(newKey);
+
+      setTodayKey(newKey);
+      setOrderedExercises(exercises);
+      setWeekDays(buildWeekDays(now));
+
+      setCurrentIndex(0);
+      setCurrentSideIndex(0);
+      setTimeLeft(getExerciseDuration(exercises[0]));
+      setIsRunning(false);
+      setShowEncouragement(false);
+    };
+
+    setPastProgress(loadExerciseProgress());
+    updateDay();
+    setIsLoaded(true);
+
+    const interval = window.setInterval(updateDay, 30_000);
+
+    const checkOnVisibility = () => {
+      if (document.visibilityState === "visible") {
+        updateDay();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      checkOnVisibility
+    );
+    window.addEventListener("focus", updateDay);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener(
+        "visibilitychange",
+        checkOnVisibility
+      );
+      window.removeEventListener("focus", updateDay);
+      clearAutoNextTimeout();
+    };
+  }, [clearAutoNextTimeout]);
+
+  // پس از تبدیل داده‌های قدیمی، نسخهٔ مبتنی بر شناسه ذخیره می‌شود.
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    saveExerciseProgress(pastProgress);
+  }, [pastProgress, isLoaded]);
+
+  const weeklyChartData = useMemo(
+    () =>
+      weekDays.map((day) => {
+        const completed = pastProgress[day.key] ?? [];
+        const percent =
+          day.isFuture || totalExercises === 0
+            ? 0
+            : Math.round(
+                (completed.length / totalExercises) * 100
+              );
+
+        return {
+          key: day.key,
+          label: day.label,
+          isToday: day.isToday,
+          percent: Math.min(100, Math.max(0, percent)),
+        };
+      }),
+    [weekDays, pastProgress, totalExercises]
+  );
+
+  const markExerciseCompleted = useCallback(
+    (exerciseId: string) => {
+      if (
+        !todayKey ||
+        completedExercises.includes(exerciseId)
+      ) {
+        return;
+      }
+
+      setPastProgress((previous) => {
+        const previousIds = previous[todayKey] ?? [];
+
+        if (previousIds.includes(exerciseId)) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [todayKey]: [...previousIds, exerciseId],
+        };
+      });
+
+      if (
+        totalExercises > 0 &&
+        completedCount === totalExercises - 1
+      ) {
+        setShowEncouragement(true);
+        playCelebrationSound();
+      }
+    },
+    [
+      todayKey,
+      completedExercises,
+      completedCount,
+      totalExercises,
+      playCelebrationSound,
+    ]
+  );
+
+  const toggleExerciseCompleted = (exerciseId: string) => {
+    if (!todayKey) return;
+
+    const wasCompleted =
+      completedExercises.includes(exerciseId);
+
+    setPastProgress((previous) => {
+      const previousIds = previous[todayKey] ?? [];
+
+      return {
+        ...previous,
+        [todayKey]: wasCompleted
+          ? previousIds.filter((id) => id !== exerciseId)
+          : previousIds.includes(exerciseId)
+          ? previousIds
+          : [...previousIds, exerciseId],
+      };
     });
+
+    if (wasCompleted) {
+      setShowEncouragement(false);
+    } else if (
+      totalExercises > 0 &&
+      completedCount === totalExercises - 1
+    ) {
+      setShowEncouragement(true);
+      playCelebrationSound();
+    }
   };
 
-  // بارگذاری و پخش ایمن ویدیو بدون خطای سیاه شدن صفحه
+  const goToExercise = useCallback(
+    (nextIndex: number) => {
+      const nextExercise = orderedExercises[nextIndex];
+      if (!nextExercise) return;
+
+      clearAutoNextTimeout();
+      setIsRunning(false);
+      setCurrentIndex(nextIndex);
+      setCurrentSideIndex(0);
+      setTimeLeft(getExerciseDuration(nextExercise));
+    },
+    [orderedExercises, clearAutoNextTimeout]
+  );
+
+  // هنگام تغییر ویدئو یا سمت تمرین، کلیپ جدید از ابتدا پخش می‌شود.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !currentExercise?.animationUrl) return;
+    if (!video || !currentAnimationUrl) return;
 
-    video.pause();
-    video.currentTime = 0;
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // نادیده گرفتن خطای اتوپلی مرورگر
-      });
+    try {
+      video.pause();
+      video.currentTime = 0;
+
+      const playPromise = video.play();
+
+      if (playPromise !== undefined) {
+        void playPromise.catch(() => {
+          // برخی مرورگرها پخش خودکار را محدود می‌کنند.
+        });
+      }
+    } catch {
+      // خطای رسانه نباید مانع استفاده از صفحه شود.
     }
-  }, [currentExercise?.animationUrl]);
+  }, [currentAnimationUrl]);
 
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isRunning || !currentExercise) return;
 
     if (timeLeft <= 0) {
-      if (isBilateral && currentSideIndex < totalSides - 1) {
+      if (
+        isBilateral &&
+        currentSideIndex < totalSides - 1
+      ) {
         playSideSwitchSound();
-        setCurrentSideIndex((prev) => prev + 1);
-        const nextSideDuration =
-          currentExercise?.sides?.[currentSideIndex + 1]?.duration ||
-          DEFAULT_SIDE_DURATION;
-        setTimeLeft(nextSideDuration);
+
+        const nextSideIndex = currentSideIndex + 1;
+
+        setCurrentSideIndex(nextSideIndex);
+        setTimeLeft(
+          getExerciseDuration(
+            currentExercise,
+            nextSideIndex
+          )
+        );
+
         return;
       }
 
       setIsRunning(false);
+      markExerciseCompleted(currentExercise.id);
 
-      setCompletedExercises((prev) => {
-        if (prev.includes(currentIndex)) return prev;
-        const updated = [...prev, currentIndex];
-        if (updated.length === totalExercises && totalExercises > 0) {
-          setShowEncouragement(true);
-          playCelebrationSound();
-        }
-        return updated;
-      });
-
-      if (currentIndex < EXERCISES_DATA.length - 1) {
+      if (currentIndex < totalExercises - 1) {
         clearAutoNextTimeout();
+
         autoNextTimeoutRef.current = setTimeout(() => {
           goToExercise(currentIndex + 1);
         }, 1200);
       }
+
       return;
     }
 
     const timer = setTimeout(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1));
+      setTimeLeft((previous) =>
+        Math.max(0, previous - 1)
+      );
     }, 1000);
 
     return () => clearTimeout(timer);
   }, [
     isRunning,
     timeLeft,
+    currentExercise,
     isBilateral,
     currentSideIndex,
     totalSides,
     currentIndex,
     totalExercises,
-    currentExercise,
     playSideSwitchSound,
-    playCelebrationSound,
+    markExerciseCompleted,
+    clearAutoNextTimeout,
+    goToExercise,
   ]);
 
   useEffect(() => {
@@ -353,49 +587,56 @@ export default function ExercisesPage() {
     }
   }, [isRunning, isMuted]);
 
-  useEffect(() => {
-    return () => clearAutoNextTimeout();
-  }, []);
-
   const toggleTimer = () => {
     clearAutoNextTimeout();
+
     if (timeLeft === 0) {
       setCurrentSideIndex(0);
-      setTimeLeft(currentDuration);
+      setTimeLeft(
+        getExerciseDuration(currentExercise)
+      );
       setIsRunning(true);
       return;
     }
-    setIsRunning((prev) => !prev);
+
+    setIsRunning((previous) => !previous);
   };
 
   const resetTimer = () => {
     clearAutoNextTimeout();
     setIsRunning(false);
     setCurrentSideIndex(0);
-    setTimeLeft(currentDuration);
+    setTimeLeft(
+      getExerciseDuration(currentExercise)
+    );
   };
-
-  const goToExercise = (nextIndex: number) => {
-    if (nextIndex < 0 || nextIndex >= EXERCISES_DATA.length) return;
-    clearAutoNextTimeout();
-    setIsRunning(false);
-    setCurrentIndex(nextIndex);
-    setCurrentSideIndex(0);
-
-    const nextExercise = EXERCISES_DATA[nextIndex];
-    const duration =
-      nextExercise?.isBilateral && nextExercise.sides?.[0]
-        ? nextExercise.sides[0].duration
-        : DEFAULT_SIDE_DURATION;
-    setTimeLeft(duration);
-  };
-
-  const handleNext = () => goToExercise(currentIndex + 1);
-  const handlePrev = () => goToExercise(currentIndex - 1);
-  const toggleSound = () => setIsMuted((prev) => !prev);
 
   const progressPercent =
-    ((currentDuration - timeLeft) / currentDuration) * 100;
+    currentDuration > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((currentDuration - timeLeft) /
+              currentDuration) *
+              100
+          )
+        )
+      : 0;
+
+  // رندر اولیهٔ سرور و مرورگر یکسان باقی می‌ماند.
+  if (!isLoaded || !todayKey) {
+    return (
+      <main
+        className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-slate-800"
+        dir="rtl"
+      >
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          در حال بارگذاری تمرین‌ها...
+        </div>
+      </main>
+    );
+  }
 
   if (!currentExercise) {
     return (
@@ -410,14 +651,20 @@ export default function ExercisesPage() {
     );
   }
 
-  const isCurrentExerciseCompleted = completedExercises.includes(currentIndex);
+  const isCurrentExerciseCompleted =
+    completedExercises.includes(currentExercise.id);
 
   return (
     <div
       className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans"
       dir="rtl"
     >
-      <audio ref={audioRef} src="/exercise-bgm.m4a" loop preload="none" />
+      <audio
+        ref={audioRef}
+        src="/exercise-bgm.m4a"
+        loop
+        preload="none"
+      />
 
       {/* هدر صفحه */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
@@ -429,6 +676,7 @@ export default function ExercisesPage() {
             >
               ← بازگشت به خانه
             </Link>
+
             <h1 className="text-lg font-bold text-teal-800">
               تمرینات کششی و اصلاحی ارگونو
             </h1>
@@ -436,7 +684,9 @@ export default function ExercisesPage() {
 
           <button
             type="button"
-            onClick={toggleSound}
+            onClick={() =>
+              setIsMuted((previous) => !previous)
+            }
             aria-pressed={isMuted}
             className={`p-2 rounded-xl border text-sm transition flex items-center gap-1.5 ${
               isMuted
@@ -449,16 +699,16 @@ export default function ExercisesPage() {
         </div>
       </header>
 
-      {/* بدنه اصلی */}
+      {/* بدنهٔ اصلی */}
       <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* ستون رسانه و کنترل‌ها */}
+        {/* رسانه و کنترل‌ها */}
         <section className="lg:col-span-7 flex flex-col gap-4">
           <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 overflow-hidden">
             <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-inner">
-              {currentExercise.animationUrl ? (
+              {currentAnimationUrl ? (
                 <video
                   ref={videoRef}
-                  key={currentExercise.animationUrl}
+                  key={currentAnimationUrl}
                   autoPlay
                   loop
                   muted
@@ -466,16 +716,18 @@ export default function ExercisesPage() {
                   preload="auto"
                   className="w-full h-full object-cover rounded-2xl"
                 >
-                  <source src={currentExercise.animationUrl} type="video/mp4" />
-                  مرورگر شما از پخش ویدیو پشتیبانی نمی‌کند.
+                  <source
+                    src={currentAnimationUrl}
+                    type="video/mp4"
+                  />
+                  مرورگر شما از پخش ویدئو پشتیبانی نمی‌کند.
                 </video>
               ) : (
                 <p className="px-4 text-center text-sm text-white">
-                  برای این تمرین فایل ویدیویی ثبت نشده است.
+                  برای این تمرین فایل ویدئویی ثبت نشده است.
                 </p>
               )}
 
-              {/* نشانگر سمت فعلی برای تمرین‌های دوطرفه روی ویدیو */}
               {isBilateral && currentSide && (
                 <div className="absolute top-4 left-4 bg-teal-600/90 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-md backdrop-blur-sm animate-pulse flex items-center gap-1.5">
                   <span>🔄</span>
@@ -496,16 +748,17 @@ export default function ExercisesPage() {
 
             {isBilateral && currentExercise.sides && (
               <div className="mt-3 flex items-center justify-center gap-2">
-                {currentExercise.sides.map((side, idx) => (
+                {currentExercise.sides.map((side, index) => (
                   <span
                     key={side.side}
                     className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${
-                      idx === currentSideIndex
+                      index === currentSideIndex
                         ? "bg-teal-600 text-white shadow-sm scale-105"
                         : "bg-slate-100 text-slate-500"
                     }`}
                   >
-                    مرحله {idx + 1}: {side.label} ({side.duration} ثانیه)
+                    مرحله {index + 1}: {side.label} (
+                    {side.duration} ثانیه)
                   </span>
                 ))}
               </div>
@@ -536,8 +789,10 @@ export default function ExercisesPage() {
                     : timeLeft === 0
                     ? "▶ شروع دوباره"
                     : isBilateral
-                    ? `▶ شروع تمرین (${currentSide?.label || "۱۵ ثانیه"})`
-                    : "▶ شروع تمرین (۱۵ ثانیه)"}
+                    ? `▶ شروع تمرین (${
+                        currentSide?.label ?? "مرحله اول"
+                      })`
+                    : `▶ شروع تمرین (${currentDuration} ثانیه)`}
                 </button>
 
                 <button
@@ -553,14 +808,18 @@ export default function ExercisesPage() {
                 <span className="text-3xl font-black text-teal-700">
                   {timeLeft}
                 </span>
-                <span className="text-xs text-slate-500">ثانیه</span>
+                <span className="text-xs text-slate-500">
+                  ثانیه
+                </span>
               </div>
             </div>
 
-            {/* دکمه ثبت */}
+            {/* ثبت انجام تمرین */}
             <button
               type="button"
-              onClick={() => toggleExerciseCompleted(currentIndex)}
+              onClick={() =>
+                toggleExerciseCompleted(currentExercise.id)
+              }
               className={`mt-5 w-full py-3 px-4 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
                 isCurrentExerciseCompleted
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20"
@@ -576,7 +835,9 @@ export default function ExercisesPage() {
             <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={handlePrev}
+                onClick={() =>
+                  goToExercise(currentIndex - 1)
+                }
                 disabled={currentIndex === 0}
                 className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
@@ -589,8 +850,12 @@ export default function ExercisesPage() {
 
               <button
                 type="button"
-                onClick={handleNext}
-                disabled={currentIndex === totalExercises - 1}
+                onClick={() =>
+                  goToExercise(currentIndex + 1)
+                }
+                disabled={
+                  currentIndex === totalExercises - 1
+                }
                 className="px-4 py-2 rounded-xl text-sm font-medium bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 تمرین بعدی →
@@ -599,12 +864,14 @@ export default function ExercisesPage() {
           </div>
         </section>
 
-        {/* ستون توضیحات */}
+        {/* توضیحات و پیشرفت */}
         <section className="lg:col-span-5 flex flex-col gap-4">
           <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h2 className="font-bold text-slate-800">پیشرفت تمرین‌ها</h2>
+                <h2 className="font-bold text-slate-800">
+                  پیشرفت تمرین‌ها
+                </h2>
                 <p className="text-xs text-slate-500 mt-1">
                   {completedCount} از {totalExercises} تمرین انجام شده
                 </p>
@@ -626,7 +893,9 @@ export default function ExercisesPage() {
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
             <div className="border-b border-slate-100 pb-4 mb-4">
               <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs mb-1">
-                <span>وضعیت: {currentExercise.position}</span>
+                <span>
+                  وضعیت: {currentExercise.position}
+                </span>
               </div>
 
               <h2 className="text-2xl font-black text-slate-800">
@@ -680,14 +949,15 @@ export default function ExercisesPage() {
           </div>
         </section>
 
-        {/* نمودار پیشرفت ۷ روز اخیر */}
+        {/* نمودار پیشرفت هفتهٔ جاری */}
         <section className="lg:col-span-12">
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-teal-800">
-                پیشرفت ۷ روز اخیر
+                پیشرفت هفته جاری
               </h2>
-              <span className="text-xs text-slate-500 bg-teal-50 text-teal-700 px-3 py-1 rounded-full border border-teal-200 font-medium">
+
+              <span className="text-xs bg-teal-50 text-teal-700 px-3 py-1 rounded-full border border-teal-200 font-medium">
                 ستون امروز: {completionPercent}٪
               </span>
             </div>
@@ -696,31 +966,56 @@ export default function ExercisesPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={weeklyChartData}
-                  margin={{ top: 12, right: 16, left: 0, bottom: 8 }}
+                  margin={{
+                    top: 12,
+                    right: 16,
+                    left: 0,
+                    bottom: 8,
+                  }}
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
                     stroke="#f1f5f9"
                   />
+
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: "#64748b", fontSize: 13, fontFamily: "inherit" }}
-                    axisLine={{ stroke: "#cbd5e1" }}
+                    tick={{
+                      fill: "#64748b",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                    }}
+                    axisLine={{
+                      stroke: "#cbd5e1",
+                    }}
                     tickLine={false}
                   />
+
                   <YAxis
                     domain={[0, 100]}
                     ticks={[0, 25, 50, 75, 100]}
-                    tickFormatter={(val: number) => `${val}%`}
-                    tick={{ fill: "#94a3b8", fontSize: 12, fontFamily: "inherit" }}
+                    tickFormatter={(value: number) =>
+                      `${value}%`
+                    }
+                    tick={{
+                      fill: "#94a3b8",
+                      fontSize: 12,
+                      fontFamily: "inherit",
+                    }}
                     axisLine={false}
                     tickLine={false}
                     width={45}
                   />
+
                   <Tooltip
-                    formatter={(val) => [`${val}٪`, "میزان انجام‌شده"]}
-                    cursor={{ fill: "rgba(15, 118, 110, 0.04)" }}
+                    formatter={(value) => [
+                      `${String(value ?? 0)}٪`,
+                      "میزان انجام‌شده",
+                    ]}
+                    cursor={{
+                      fill: "rgba(15, 118, 110, 0.04)",
+                    }}
                     contentStyle={{
                       borderRadius: "0.75rem",
                       border: "1px solid #e2e8f0",
@@ -728,6 +1023,7 @@ export default function ExercisesPage() {
                       fontFamily: "inherit",
                     }}
                   />
+
                   <Bar
                     dataKey="percent"
                     radius={[8, 8, 0, 0]}
@@ -737,7 +1033,11 @@ export default function ExercisesPage() {
                     {weeklyChartData.map((day) => (
                       <Cell
                         key={`cell-${day.key}`}
-                        fill={day.isToday ? "#0f766e" : "#94a3b8"}
+                        fill={
+                          day.isToday
+                            ? "#0f766e"
+                            : "#94a3b8"
+                        }
                       />
                     ))}
                   </Bar>
@@ -748,7 +1048,7 @@ export default function ExercisesPage() {
         </section>
       </main>
 
-      {/* مدال تشویقی */}
+      {/* پنجرهٔ تشویقی */}
       {showEncouragement && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
@@ -757,16 +1057,21 @@ export default function ExercisesPage() {
         >
           <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl">
             <div className="text-6xl mb-4">🎉</div>
+
             <h2 className="text-2xl font-black text-teal-800 mb-3">
               آفرین! فوق‌العاده بود
             </h2>
+
             <p className="text-slate-600 leading-relaxed text-sm mb-6">
-              شما تمام تمرین‌های امروز را انجام دادید. این استمرار به سلامت بدن
-              و کاهش خستگی‌های روزانه کمک می‌کند.
+              شما تمام تمرین‌های امروز را انجام دادید. این استمرار
+              به سلامت بدن و کاهش خستگی‌های روزانه کمک می‌کند.
             </p>
+
             <button
               type="button"
-              onClick={() => setShowEncouragement(false)}
+              onClick={() =>
+                setShowEncouragement(false)
+              }
               className="w-full rounded-xl bg-teal-600 px-5 py-3 font-bold text-white transition hover:bg-teal-700"
             >
               خیلی خوب! ادامه می‌دهم
