@@ -25,7 +25,7 @@ export const EXERCISES_DATA: Exercise[] = [
   // --- ۶ حرکت جدید با مسیر ویدیویی هماهنگ‌شده ---
   {
     id: "traps-stretch-bilateral",
-    title: "کشش عضلات ذوزنقه و گردن",
+    title: "کشش عضلات کتف و گردن",
     titleEn: "Traps Stretch Variation One",
     position: "ایستاده یا نشسته",
     instruction: "بایستید یا بنشینید. دست چپ را روی سر بگذارید و به آرامی سر را به سمت شانه چپ بکشید. پس از ۱۵ ثانیه سمت را تغییر دهید.",
@@ -61,7 +61,7 @@ export const EXERCISES_DATA: Exercise[] = [
   },
   {
     id: "neck-upper-back-stretch",
-    title: "کشش خم کردن سر به جلو (پشت گردن)",
+    title: "خمش سر و گردن به جلو",
     titleEn: "Traps Stretch Variation Three",
     position: "ایستاده یا نشسته",
     instruction: "بالاتنه را صاف نگه دارید. سر را به جلو خم کنید تا چانه به قفسه سینه نزدیک شود و کشش ملایمی در پشت گردن و بالای پشت احساس کنید.",
@@ -100,7 +100,7 @@ export const EXERCISES_DATA: Exercise[] = [
   },
   {
     id: "chest-stretch-extended",
-    title: "کشش قفسه سینه و شانه‌ها (دستان کشیده)",
+    title: "کشش قفسه سینه و شانه‌ها ",
     titleEn: "Chest Stretch Variation Four",
     position: "ایستاده",
     instruction: "بازوها را تا ارتفاع شانه به طرفین و جلو امتداد دهید، سپس به‌آرامی به عقب ببرید تا کشش مناسبی در قفسه سینه و جلوی شانه ایجاد شود.",
@@ -157,7 +157,7 @@ export const EXERCISES_DATA: Exercise[] = [
   },
   {
     id: "flex-wrist-forward",
-    title: "کشش مچ به جلو (خم به پایین)",
+    title: "خمش مچ دست",
     titleEn: "Wrist Flexion Stretch",
     position: "نشسته",
     instruction: "یک دست را در مقابل بدن صاف نگه دارید و انگشتان آن را به سمت پایین بگیرید. با دست دیگر، انگشتان را به‌آرامی به سمت خود بکشید؛ سپس همین حرکت را با دست دیگر تکرار کنید.",
@@ -168,7 +168,7 @@ export const EXERCISES_DATA: Exercise[] = [
   },
   {
     id: "flex-wrist-backward",
-    title: "کشش مچ به عقب (خم به بالا)",
+    title: "کشش مچ به عقب ",
     titleEn: "Wrist Extension Stretch",
     position: "نشسته",
     instruction: "یک دست را در مقابل بدن صاف نگه دارید، کف دست را رو به جلو و انگشتان را رو به بالا بگیرید. با دست دیگر، انگشتان را به‌آرامی به سمت عقب بکشید؛ سپس همین حرکت را با دست دیگر تکرار کنید.",
@@ -190,7 +190,7 @@ export const EXERCISES_DATA: Exercise[] = [
   },
   {
     id: "trunk-twist",
-    title: "چرخش تنه (تویست)",
+    title: "چرخش تنه ",
     titleEn: "Trunk Twist",
     position: "ایستاده",
     instruction: "صاف بایستید و دست‌ها را دور تنه قلاب کنید، طوری که گویی خودتان را در آغوش گرفته‌اید. تنه را به‌آرامی به یک سمت بچرخانید، سپس به حالت روبه‌رو برگردید و حرکت را به سمت دیگر تکرار کنید.",
@@ -233,7 +233,7 @@ export const EXERCISES_DATA: Exercise[] = [
   },
   {
     id: "back-extension",
-    title: "باز کردن و کشش پشت",
+    title: " کشش پشت",
     titleEn: "Back Extension",
     position: "ایستاده یا نشسته",
     instruction: "صاف قرار بگیرید، دست‌ها را روی گودی کمر بگذارید. شانه‌ها را به‌آرامی به عقب بکشید و قفسه سینه را باز کنید؛ سپس به حالت اولیه بازگردید.",

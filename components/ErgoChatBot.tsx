@@ -9,10 +9,16 @@ import {
   User,
   X,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 type Message = {
   role: 'user' | 'assistant';
   content: string;
+};
+
+type ChatResponse = {
+  reply?: string;
+  error?: string;
 };
 
 const initialMessage: Message = {
@@ -25,9 +31,46 @@ export default function ErgoChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [userName, setUserName] = useState('');
   const [messages, setMessages] = useState<Message[]>([initialMessage]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // دریافت نام کاربر از نشست Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    const getUserName = async () => {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error || !isMounted) return;
+
+      const fullName = data.user?.user_metadata?.full_name;
+
+      if (typeof fullName === 'string' && fullName.trim()) {
+        setUserName(fullName.trim());
+      }
+    };
+
+    void getUserName();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const fullName = session?.user?.user_metadata?.full_name;
+
+      if (typeof fullName === 'string' && fullName.trim()) {
+        setUserName(fullName.trim());
+      } else {
+        setUserName('');
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // اسکرول نرم به انتهای پیام‌ها
   useEffect(() => {
@@ -36,10 +79,11 @@ export default function ErgoChatBot() {
     }
   }, [messages, isOpen]);
 
-  // تابع مشترک ارسال پیام به API
+  // ارسال پیام به API
   const sendMessage = useCallback(
     async (textToSend: string) => {
       const trimmedText = textToSend.trim();
+
       if (!trimmedText || loading) return;
 
       const userMessage: Message = {
@@ -47,78 +91,79 @@ export default function ErgoChatBot() {
         content: trimmedText,
       };
 
-      setMessages((prev) => {
-        const nextMessages = [...prev, userMessage];
+      const nextMessages = [...messages, userMessage];
 
-        // ارسال به سرور
-        (async () => {
-          setLoading(true);
-          try {
-            const response = await fetch('/api/chat', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                messages: nextMessages,
-              }),
-            });
+      setMessages(nextMessages);
+      setLoading(true);
 
-            let data: any = null;
-            try {
-              data = await response.json();
-            } catch {
-              data = null;
-            }
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messages: nextMessages,
+            userName,
+          }),
+        });
 
-            if (!response.ok || !data?.reply) {
-              const errorText =
-                data?.error ||
-                (response.status === 404
-                  ? 'مسیر سرویس در سرور یافت نشد (کد 404). لطفاً وضعیت استقرار را بررسی کنید.'
-                  : `خطای سرور (${response.status})`);
-              throw new Error(errorText);
-            }
+        let data: ChatResponse | null = null;
 
-            setMessages((current) => [
-              ...current,
-              {
-                role: 'assistant',
-                content: data.reply,
-              },
-            ]);
-          } catch (err: any) {
-            const displayMessage =
-              err?.message ||
-              'در ارتباط با دستیار ارگونو مشکلی پیش آمد. لطفاً کمی بعد دوباره تلاش کنید.';
+        try {
+          data = (await response.json()) as ChatResponse;
+        } catch {
+          data = null;
+        }
 
-            setMessages((current) => [
-              ...current,
-              {
-                role: 'assistant',
-                content: displayMessage,
-              },
-            ]);
-          } finally {
-            setLoading(false);
-          }
-        })();
+        if (!response.ok || !data?.reply) {
+          const errorText =
+            data?.error ||
+            (response.status === 404
+              ? 'مسیر سرویس در سرور یافت نشد (کد ۴۰۴). لطفاً وضعیت استقرار را بررسی کنید.'
+              : `خطای سرور (${response.status})`);
 
-        return nextMessages;
-      });
+          throw new Error(errorText);
+        }
+
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            role: 'assistant',
+            content: data.reply as string,
+          },
+        ]);
+      } catch (error: unknown) {
+        const displayMessage =
+          error instanceof Error && error.message
+            ? error.message
+            : 'در ارتباط با دستیار ارگونو مشکلی پیش آمد. لطفاً کمی بعد دوباره تلاش کنید.';
+
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          {
+            role: 'assistant',
+            content: displayMessage,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
     },
-    [loading]
+    [loading, messages, userName]
   );
 
-  // لیسنر برای باز شدن خودکار چت‌بات در زمان انتخاب «مطمئن نیستم» در چک‌لیست
+  // باز شدن خودکار چت‌بات از چک‌لیست
   useEffect(() => {
     const handleOpenAssistant = (event: Event) => {
       const customEvent = event as CustomEvent<{ prompt?: string }>;
+
       setIsOpen(true);
 
       const prompt = customEvent.detail?.prompt;
+
       if (prompt && prompt.trim()) {
-        sendMessage(prompt);
+        void sendMessage(prompt);
       }
     };
 
@@ -131,9 +176,11 @@ export default function ErgoChatBot() {
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     if (!input.trim() || loading) return;
 
     const currentInput = input;
+
     setInput('');
     await sendMessage(currentInput);
   }
@@ -151,10 +198,9 @@ export default function ErgoChatBot() {
           title="دستیار هوش مصنوعی ارگونو"
           className="group relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-700 via-emerald-600 to-teal-500 text-white shadow-xl shadow-emerald-700/30 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-600/40 focus:outline-none focus:ring-4 focus:ring-emerald-300"
         >
-          {/* افکت نوری هوش مصنوعی */}
-          <span className="absolute -top-1 -right-1 flex h-4 w-4">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75"></span>
-            <span className="relative inline-flex h-4 w-4 rounded-full bg-teal-400 text-[9px] items-center justify-center">
+          <span className="absolute -right-1 -top-1 flex h-4 w-4">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
+            <span className="relative inline-flex h-4 w-4 items-center justify-center rounded-full bg-teal-400 text-[9px]">
               <Sparkles className="h-2.5 w-2.5 text-slate-900" />
             </span>
           </span>
@@ -174,10 +220,12 @@ export default function ErgoChatBot() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <h2 className="text-sm font-bold">دستیار ارگونو</h2>
+
                   <span className="rounded bg-teal-300/30 px-1.5 py-0.5 text-[10px] font-semibold text-teal-100">
                     AI
                   </span>
                 </div>
+
                 <p className="mt-0.5 text-[11px] text-emerald-100">
                   راهنمای علمی ارگونومی
                 </p>
